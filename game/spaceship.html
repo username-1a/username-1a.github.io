@@ -1,378 +1,626 @@
 <html>
+<head><style>
+button{background:black;color:green;border:1px solid green;box-shadow:0 0 1rem green inset;width:5rem;height:1.5rem;transition-duration:0.2s;}button:hover{background:green;color:black}
+</style></head>
 <body>
-
-<canvas id='c'></canvas>
-<div id='comp'></div>
-<button onclick='game()'>1</button>
-
 <script>
-var el=(x)=>document.getElementById(x)
-var ca=el('c'),ctx=ca.getContext('2d')
-
-//#utils ARRAY
-var list=(x,y,n)=>n>1?list(x,y,n-1).concat([x+y*(n-1)]):n?[x]:[];
-var toString=JSON.stringify;
-var List=(x)=>list(0,1,x.length);
-var Le=(x)=>x.length;
-var reduce=(x,i,f)=>[i].concat(x).reduce(f);
-var substr=(x,y)=>y.map((i)=>x[i]);
-var sort=(x,y)=>substr(x,List(y).sort((z,t)=>y[z]-y[t]));
-var Min=(x)=>reduce(x,1/0,(y,z)=>y<z?y:z);
-var Max=(x)=>reduce(x,-1/0,(y,z)=>y>z?y:z);
-var iMin=(x)=>reduce(List(x),1/0,(y,z)=>x[y]<x[z]?y:z);
-var total=(x)=>reduce(x,0,(y,z)=>y+z);
-var equal=(x,y)=>toString(x)==toString(y);
-var In=(x,y)=>y.some((z)=>equal(x,z));
-function rdm(x){if(!x){return Math.random()}else{return list(0,1,x).map(Math.random)}};
-var union=(x)=>reduce(x,[],(y,z)=>y.concat(z));
-var modify=(x,i,n,r)=>x.slice(0,i).concat(r,x.slice(i+n));
-var map2f=(x,y,f)=>List(x).map((i)=>f(x[i],y[i],i));
-var un=(x)=>JSON.parse(toString(x));
-var add=(x,y)=>map2f(x,y,(z,t)=>z+(t??y));
-var subt=(x,y)=>map2f(x,y,(z,t)=>z-(t??y));
-var mult=(x,y)=>map2f(x,y,(z,t)=>z*(t??y));
-var Add=(x,y)=>map2f(x,y,(z,t)=>add(z,y[0]-1==y[0]-1?y:t));
-var Subt=(x,y)=>map2f(x,y,(z,t)=>subt(z,y[0]-1==y[0]-1?y:t));
-var Mult=(x,y)=>map2f(x,y,(z,t)=>mult(z,(t??y)));
-var clone=(x,n)=>substr([x],list(0,0,n));
-var Rep=(x,f)=>union(map2f(x,[0],(z,t,i)=>clone(z,f(i))));
-var rep=(x,n)=>Rep(x,()=>n);
-var exstr=(x,y)=>x.filter((z,t)=>!In(t,y));
-var unique=(x)=>x.filter((y,z)=>!In(y,x.slice(0,z-1)));
-var shuffle=(x)=>x.sort(()=>0.5-rdm());
-var Total=(x)=>reduce(x,[0,0],add);
-var expa=(x,y,f)=>union(x.map((z)=>y.map((t)=>f(z,t))));
-var expp=(x,y,i)=>[x[Math.floor(i/Le(y))],y[i%Le(y)]];
-var amount=(x,n)=>x.filter((y)=>y==n).length;
-var iter=(f,x,n)=>reduce(list(0,0,n),x,f);
-function itef(f,x,y){list(x,1,y-x+1).forEach(f)};
-var dot=(x,y)=>total(mult(x,y));
-var lerp=(x,y,t)=>add(x,mult(subt(y,x),t));
-var M=(x)=>Math.sqrt(dot(x,x));
-var ref=(x,y)=>!y[0]&&!y[1]?x:subt(x,mult(y,2*dot(x,y)/dot(y,y)));
-var arg=(x,y)=>Math.acos(dot(x,y)/(M(x)*M(y)));
-var cross=(x,y)=>[x[1]*y[2]-x[2]*y[1],x[2]*y[0]-y[2]*x[0],x[0]*y[1]-y[0]*x[1]];
-var mean=(x)=>total(x)/Le(x);
-var centroid=(x)=>mult(Total(x),1/Le(x));
-var sample=(x,t)=>shuffle(x).filter((y,z)=>z<t);
-var al=(x,y)=>x[0]-1==x[0]-1?add(x,y):Add(x,y);
-var sl=(x,y)=>x[0]-1==x[0]-1?subt(x,y):Subt(x,y);
-var ml=(x,y)=>x[0]-1==x[0]-1?mult(x,y):Mult(x,y);
-var filter=(x,y,f)=>List(x).filter((i)=>f(y[i])).map((i)=>x[i])
-//#endutils
-
-
-//#utils CONTEXT_2D
-var w=window.innerWidth,h=window.innerHeight;
-var conj=(x)=>[x[0],-x[1]]
-var tr=(x)=>add(vp.c,mult(conj(x),vp.r)),tr1=(x)=>conj(mult(subt(x,vp.c),1/vp.r));
-var vp={c:[w/2,h/2],r:h/20}
-function poly1(c,x,t){c.beginPath();c.moveTo(x[0][0],x[0][1]);list(1,1,Le(x)-1).forEach(function(i){c.lineTo(x[i][0],x[i][1])});c.closePath();c[['fill','stroke'][t?1:0]]()};
-var poly=(c,x,t)=>poly1(c,x.map(tr),t);
-var pi=Math.PI,tau=2*pi;
-function setrgb(c,x,t){c[(t?'stroke':'fill')+'Style']='rgba('+x[0]+','+x[1]+','+x[2]+','+(x[3]||1)+')'};
-function arc(c,x,r,t1,t2){c.arc(tr(x)[0],tr(x)[1],Math.abs(r)*vp.r,t1,t2)};
-function circle(c,x,r,t){c.beginPath();arc(c,x,r,0,tau);c.closePath();c[t?'stroke':'fill']()};
-var setview=(r)=>(vp={c:[w/2,h/2],r:h/(r*2)});
-function zoom(c,r){vp.c=add(vp.c,mult(c,(1-r)*vp.r));vp.r*=r};
-var Circle=(c,x,r,t)=>x.forEach((y)=>circle(c,y,r,t));
-function square(c,x,r,t){c[t?'strokeRect':'fillRect'](...tr([x[0]-r,x[1]+r]),2*r*vp.r,2*r*vp.r)}
-//#endutils
+//utils
+var ca=document.createElement('canvas'),ctx=ca.getContext("2d");var fromid=(x)=>document.getElementById(x)
+document.body.appendChild(ca)
+var sin=Math.sin,cos=Math.cos,min=Math.min,max=Math.max,abs=Math.abs,floor=Math.floor,mod=(x,y)=>x-y*floor(x/y)
+var clamp=(x,a,b)=>min(max(x,a),b)
+class pn{
+constructor(x=0,y=0,t=0){this.x=t?x*cos(y):x;this.y=t?x*sin(y):y;}
+add(x){return new pn(this.x+x.x,this.y+x.y)}
+subt(x){return new pn(this.x-x.x,this.y-x.y)}
+mult(x){return new pn(this.x*x,this.y*x)}
+div(x){return new pn(this.x/x,this.y/x)}
+rot(c,t){let x=this.x-c.x,y=this.y-c.y;return t?new pn(x*cos(t)-y*sin(t),x*sin(t)+y*cos(t)).add(c):this}
+dist(x){return Math.sqrt((this.x-x.x)**2+(this.y-x.y)**2)}
+eq(x){return this.x==x.x&&this.y==x.y}
+dot(x){return this.x*x.x+this.y*x.y}
+dot2(){return this.dot(this)}
+det(x){return this.x*x.y-this.y*x.x}
+clone(){return new pn(this.x,this.y)} //in case modifying Bs fxcks up Bd.............
+dir(x){return Math.atan2(x.y-this.y,x.x-this.x)}
+norm(x=1){if(this.x==0&&this.y==0)return new pn(1,0);let y=x/this.dist({x:0,y:0});return this.mult(y)}
+cmult(x){return new pn(this.x*x.x-this.y*x.y,this.x*x.y+this.y*x.x)}
+cdiv(x){return new pn(this.x*x.x+this.y*x.y,this.y*x.x-this.x*x.y).div(x.dot(x))}
+rotTo(c,x){let y=this.subt(c);return y.cmult(x.subt(c).cdiv(y).norm()).add(c)}
+mix(x,t){return this.mult(1-t).add(x.mult(t))}
+tr(x,t){return this.eq(x)?this:this.mix(x,t/this.dist(x))}//translate
+print(){return `(${this.x.toFixed(3)},${this.y.toFixed(3)})`}
+}
+pn.prototype.set=function(x){this.x=x.x;this.y=x.y;}
+Number.prototype.add=function(x){return this+x};Number.prototype.subt=function(x){return this-x};Number.prototype.mult=function(x){return this*x}
+var list=(x,t,n)=>n>0?Array.from({length:n},(i,j)=>j?x+t*j:x):[],List=(x)=>list(0,1,x.length)
+var reduce=(i,x,f)=>x.reduce(f,i)
+var toArray=(x)=>Array.isArray(x)?x:[x]
+var copy=x=>JSON.parse(JSON.stringify(x))
+var map2=(x,y,f)=>(x[0]??y[0]??'Aw fxxks.')=='Aw fxxks.'?f(x,y):List(Array.isArray(x)?x:y).map(i=>f(x[i]??x,y[i]??y))
+var Min=(x)=>Math.min(...x);var Max=(x)=>Math.max(...x)
+var add=(x,y)=>map2(x,y,(i,j)=>i.add(j)),subt=(x,y)=>map2(x,y,(i,j)=>i.subt(j)),mult=(x,y)=>map2(x,y,(i,j)=>i.mult(j))
+var total=(x)=>reduce((x[0] instanceof pn)?pn(0,0):0,x,(i,j)=>i.add(j))
+var rdm=(x)=>x?list(0,1,x).map(i=>Math.random()):Math.random()
+var randInt=(x,y)=>floor((y-x)*Math.random()+x)//randoms in [x,y)
+var substr=(x,y)=>y.map(i=>x[i])
+var unique=(x)=>[...new Set(x)]
+var union=(x)=>reduce([],x,(y,z)=>y.concat(z))
+var Rep=(x,f)=>union(List(x).map((i)=>Array(f(i)).fill(x[i])))
+var clone=(x,n)=>Array(n).fill(x)
+var maxAmount=(x)=>Max(unique(x).map((i)=>x.filter(j=>i==j).length))
+var divide=(x,y)=>x.length>y?[x.slice(0,y),...divide(x.slice(y),y)]:[x]
+//drawings
+var vp={c:new pn(0,0),r:11}
+var pi=Math.PI,tau=2*pi
+ca.w=ca.width=window.innerWidth;ca.h=ca.height=window.innerHeight;ca.res=new pn(ca.w,ca.h)
+var stoc=(x)=>{let y=new pn(x.x*2-ca.w,-x.y*2+ca.h);return y.mult(vp.r/ca.h).add(vp.c)}
+var ctos=(x)=>{let y=x.subt(vp.c).mult(ca.h/vp.r);return new pn((y.x+ca.w)/2,(ca.h-y.y)/2)}
+function polygon(x,t,c=0){let y=x.map(ctos);ctx.beginPath();ctx.moveTo(y[0].x,y[0].y);for(let i=1;i<y.length;i++)ctx.lineTo(y[i].x,y[i].y);c||(ctx.closePath());t?ctx.stroke():ctx.fill()}
+function setcolor(x){ctx.fillStyle=ctx.strokeStyle='rgba('+255*x[0]+','+255*x[1]+','+255*x[2]+','+(x[3]??1)+')'}
+function circle(c,r,t,astart=0,aend=2*pi){ctx.beginPath();ctx.arc(ctos(c).x,ctos(c).y,r*0.5*ca.h/vp.r,astart,aend);t?ctx.stroke():ctx.fill()}
+function hsv(h,s,v){let x=mod(h/60,6),c=t=>max(0,min(t,1)),y=s*v;return [abs(x-3)-1,2-abs(x-2),2-abs(x-4)].map((i)=>255*(y*c(i)+v-y))}
+var Poly=(x,r,n,a=0,k=1,stroke=0)=>polygon(list(0,1,n).map(i=>new pn(r,2*pi*i*k/n+a,1).add(x)),stroke)
+function rect(x1,y1,t){let x=x1.x<y1.x?x1:y1,y=x1.x<y1.x?y1:x1;polygon([x,new pn(x.x,y.y),y,new pn(y.x,x.y)],t)}
+//key
+function codeToDir(x){return new pn(x==37?-1:x==39?1:0,x==38?1:x==40?-1:0)}
+//text
+function fillText(t,c,c0l0r){setcolor(c0l0r);let x=ctos(c);ctx.fillText(t,x.x,x.y)}
+function fillTextCenter(t,c,c0l0r){setcolor(c0l0r);let x=ctos(c),y=ctx.measureText(t);ctx.fillText(t,x.x-y.width/2,x.y)}
+//function fillTextBg(t,c,c0l0r,c_bg=[0,0,0]){let x=ctos(c),y=ctx.measureText(t),h2=y.fontBoundingBoxAscent,h1=y.fontBoundingBoxDescent;setcolor(c_bg);ctx.fillRect(x.x,x.y+h1,y.width,h1+h2);setcolor(c0l0r);ctx.fillText(t,x.x,x.y)}//doesnt work :(
+//polygon sdf
+function sdf_poly(p,v){let d=p.subt(v[0]).dot2(),S=1;for(let i=0,j=v.length-1;i<v.length;j=i,i++){let E=v[j].subt(v[i]),w=p.subt(v[i]);let b=w.subt(E.mult(clamp(w.dot(E)/E.dot(E),0,1)));d=min(d,b.dot2());let c=(p.y>=v[i].y?1:0)+(p.y<v[j].y?1:0)+(E.x*w.y>E.y*w.x?1:0);if(c==0||c==3)S=-S}return S*d**0.5}
 
 
-//#utils OBJECT
-function o_extend(x,n,f){Object.defineProperty(x.prototype||x,n,{value:f})};
-function o_cons(k,x){let o={};itef((i)=>{o[k[i]]=x[i]},0,L(k)-1);return o};
-function o_des(o){let k=x=[];for(let i in o){k.push(i);x.push(o[i])};return [k,x]};
-function o_map2f(x,y,f){let z=x;for(let i in y){z[i]=f(x[i],y[i])};return z};
-var o_union=(x,y)=>o_map2f(x,y,(z,t)=>t),o_add=(x,y)=>o_map2f(x,y,(z,t)=>z+t)
-function o_unload(o,x){let keys=Object.getOwnPropertyNames(o);let y='';keys.forEach((i)=>{y+='var '+i+'='+x+'.'+i+';'});return y;};
-//#endutils
 
-ca.width=w;ca.height=h
-eval(o_unload(Math,'Math'))
+//changelog(actually not)
+/*fixed the bug that bullet didn't move. Also fixed that player getting hit eliminated all enemies(due to rlist[i][0] being 'p' instead of 'pla'). Also fixed that spaceships didn't move. Fixed that multishot was incorrect.(now using custom settimeout func.) Also fixed that bullet's fade effect covered the planes. Fixed that spawning a plane removes both planes(now use p.clone() instead of p). Fixed that SBr was incorrect. Fixed that bullet spawning attacks made game go boom. Fixed that explosives didn't explode when hitting player. Fixed that explosives sank into walls on contact. Fixed that bullets burn through targets. Fixed that Multishot didn't work correctly with multiple enemies on stage(due to incorrect Uto() xD). Fixed that _bp_move's bullets keep spinning instead of moving(due to mistakes in pn.rotTo and _bp_move). Fixed that killing only big enemies in lv48 completes the stage. Fixed that lv61 yellow enemy's shield didn't spin and blue ones' waves didn't emit orbs. Fixed lv62 yellow dude's move system. Fixed that lv63 boss bullets went outta borders. Fixed that extra horizontal laser appeared when laser activates. Fixed lv73 red bro's move system. Made bullets for players. Extended the bullet system. Fixed that player's bullets instantly disappear. Fixed that player's AT doesn't increase when processing stages. Fixed that player's 5th attack doesn't appear. Fixed that homing-to-enemies bullets didn't work. Fixed that forgot to return values in function Ssl2. Improved player Hp and NG+ systems(possibly making game easier XD). Added UI. Fixed that UI didn't appear. Now planes can summon bullets spinning around them! :D Fixed that lv82 bullet still show a disappear effect animation when it transforms. Added Attributes! Fixed that attributes trigger when it's not set. Fixed that attributes are kept across levels. Fixed fillTextBg(but fukked it up again). Removed fillTextBg(godbless the UI in shady mode...). Modified testmode UI. Tested NG Plus(and got mad after hours of attempts at lv19 xD).
+*/
 
-var polar=(r,t)=>[r*cos(t),r*sin(t)],sgn=(x)=>x>0?1:-1
-var pla=[0,0],m=10,p_s=.1,s_s=.2
-var iv=(x,s)=>abs(x[0])<=m-s&&abs(x[1])<=m-s
-var bd=[],Bd=[],pd=[],sd=[],stage=0,dt=.05
+window.onerror=function(m,s,l,c){if(window['fxcked-up'])return;window['fxcked-up']='This is not a bug,it is a feature.';let x=document.createElement('div');x.id='my code has no errors!!';document.body.appendChild(x);window['my_code_has_no_errors']=0;window['my_code_literally_has_no_errors']=setInterval(function(){window['my_code_has_no_errors']=(window['my_code_has_no_errors']+1.2)%360;x.style.color=`hsl(${window['my_code_has_no_errors']},100%,50%)`},50);x.innerHTML=`Boi you fukked up - there's an error in the code(oh shite) (message:${m},source:${s},at line ${l},column ${c})`}
+function poly(x,c,t=0,c1=0){setcolor(c);polygon(x,t,c1)}
+var sum=(x)=>x.reduce((i,j)=>i+j,0),sgn=x=>x>0?1:-1
+var divdiv=document.createElement('div');divdiv.innerHTML='';document.body.appendChild(divdiv)
+function drawBorder(){poly([new pn(10,10),new pn(10,-10),new pn(-10,-10),new pn(10,-10)],0,[1,1,1])}
+function CLAMP(x){let c=(t)=>min(9.99,max(-9.99,t));return new pn(c(x.x),c(x.y))}
+var lv=0,pt='prototype',dt=0.05,p_s=.1,s_s=.2 //level prototype deltaTime PointSize SegmentSize XD
+var game={b:[],p:[],s:[0,1/0,1/0,1/0],f:[],fp:[],pla:[]},pla=new pn(0,0),rlist=[]
+var func=(x,t=[])=>(typeof x)[0]=='f'?x(...t):x
+/*to player*/var tpla=(pos)=>pla.subt(pos)
+var bd=[],pd=[],sd=[]
+var maxlv=()=>sd.length-1
+var anim=0,gamestate=0
+var test_mode=!1
+var iv=(x,s=0.0001)=>(x instanceof pn)?(abs(x.x)<=10-s&&abs(x.y)<=10-s):(iv(x.p)&&iv(x.oldp))
+//wtf?
+//hpMult actually scales DMG taken. not max hp.
+game.hpMult=1;game.enemyMult=1;game.darkness=false;game.darkRange=1;game.dmgMult=1
+game.shields=[] //for fvckin' level 75
+var zigzag=(t,rmin,rmax,T)=>rmin+(rmax-rmin)*abs(mod(2*t/T-1,2)-1)
+var dmg_mult=(d)=>d.target=='p'?1/game.hpMult:game.dmgMult
+game.pla_dmg_total=0
 
-//INITS.
-var Ib=(p,d,n,v)=>[p,v,n,d[4][1]||0,d[6]]
-var Is=(d)=>[0,0,d[0][0][2],0]
-function Ip(p,d,n,v,s){let x=clone(0,Le(d[1]));return [p,d[3]==1||d[3]==2?[0,0]:v,n,mult(d[1],d[8]?0:rdm()),d[5],x,x,x,clone(1,Le(d[1])),s]}
-var Di2=(x,y)=>(x[0]-y[0])*(x[0]-y[0])+(x[1]-y[1])*(x[1]-y[1])
-var Cl=(x)=>x.map((i)=>i>m?m:i<-m?-m:i)
-var bs=[],ps=[],ss=[],Fs=[]
-setview(11)
+//move fucktions
+function nE(p0s){let j=-1,d=1/0;for(let x in game.p){let pos=game.p[x].p,d1=pos.dist(p0s);if(d>d1&&game.p[x].d.shape.toString()!='()=>0')d=d1,j=+x;}return j}
+function m_ref(x,r){let t=10*r[0];return new pn(t-r[1]*(t-x.x),t+r[1]*(t-x.y))}function getR(x){return abs(x.x)>abs(x.y)?[sgn(x.x),-1]:[sgn(x.y),1]}
+var _move=(p,o)=>({p:p.mult(2).subt(o),oldp:p.clone()}) //advect.
+var _b_move=function(p,o){let m=_move(p,o);return iv(m.p)?m:{p:m_ref(m.p,getR(m.p)),oldp:m_ref(m.oldp,getR(m.p))}}//BounceBounce!
+var _o_move=(t)=>(function(p,o){let m=_b_move(p,o);return {p:m.p,oldp:m.oldp.rot(m.p,t*dt)}})//move w/ offset(Spins if t=pi/2)
+var _r_move=(v,t)=>(function(p,o){let a=new pn((t?v:rdm()*v)*dt*dt,rdm()*tau,1),m=_b_move(p,o);if(!m.p.eq(m.oldp))m.oldp.set(m.oldp.subt(m.p).norm(min(m.oldp.dist(m.p),v)).add(m.p));return {p:m.p.clone(),oldp:m.oldp.subt(a)}})//Random walk
+var _c_move=(v)=>((p,o)=>({p:p.cmult(new pn(1,v*dt,1)),oldp:p.clone()}))//Circulate
+var _tp_move=(v,R=1/0,O=0,b=0)=>((p,o)=>{let f=b?_b_move:_move,y=pla.rot(p,O).subt(p).norm(v*dt),m=p.dist(pla)>R?{p:p,oldp:o}:{p:p,oldp:p.subt(y)};return f(m.p,m.oldp)})//move Towards Player
+var _te_move=(v,R=1/0,O=0,b=0)=>((p,o)=>{let k=nE(p),p1=game.p[k]?.p||new pn(0,0),f=b?_b_move:_move;if(k<0)return f(p,o);let y=p1.rot(p,O).subt(p).norm(v*dt),m=p.dist(p1)>R?{p:p,oldp:o}:{p:p,oldp:p.subt(y)};return f(m.p,m.oldp)})//move Towards Enemy
+var _static=(p,o)=>({p:p,oldp:p});var _freeze=(p,o)=>({p:p,oldp:o});
+var _ba_move=(v)=>(function(p,o){let m=_b_move(p,o);if(!iv(m.oldp))m.oldp.set(m.p.mix(m.oldp,v));return m})//Bounce and Accelerate
+var _a_move=(v,b)=>(function(p,o){let m=b?_b_move(p,o):_move(p,o);if(m.oldp.dist(m.p)<0.01*dt)return _freeze(p,o);m.oldp.set(m.p.mix(m.oldp,v**dt));return m})//simple Accelerate
+var _bp_move=(v)=>(function(p,o){let m=_b_move(p,o);if(!iv(m.oldp)){m.oldp.set(m.p.mix(m.oldp,v));m.oldp.set(m.oldp.rotTo(m.p,m.p.mult(2).subt(pla)))};return m})//Bounce and movetowardsPlayer
+var _re_move=(v,P=0)=>(function(p,o){let m=_b_move(p,o);if(rdm()<1-(1-P)**dt)m.oldp.set(m.p.add(new pn(rdm()*v*dt,rdm()*tau,1)));return m})//Random walk...with Epilepsy!
+var _g_move=(g)=>(function(p,o){let m=_b_move(p,o);m.oldp.set(m.oldp.add(m.p.norm(g*dt*dt/(m.p.dot(m.p)+1))));return m})//gravity!
+var _bf_move=function(p,o){let m=_move(p,o);return iv(m.p)?m:{p:m.oldp,oldp:m.p}}//move Back and Forth
+var _ob_move=(v,rmin,rmax,T)=>(function(p,o,P){P.r0??=P.plane.p.dir(p);P.r1||=0;if(P.plane.param.remove){P.remove=1;return _static(p,o)};P.r0=(P.r0+v*dt)%tau;P.r1+=dt;let p1=P.plane.p.add(new pn(zigzag(P.r1,rmin,rmax,T),P.r0,1));return {p:p1,oldp:p}})//Orbit around a certain plane.
+var _gd_move=(g)=>(function(p,o){let m=_b_move(p,o);m.oldp.set(m.oldp.add(new pn(0,g*dt*dt)));return m})//gravity downwards
 
-Array.prototype.remove=function(i){this.splice(i,1)}
-Array.prototype.mod=function(i,x){return modify(this,i,1,[x])}
+//hit detect fucktions
+var _hit=(s)=>((p,o,e,h)=>p.dist(e)<s+h)
+var _i_hit=(s)=>((p,o,e,h)=>p.dist(e)>s-h)
+var _l_hit=(s)=>(function(p,o,e,h){let v=p.subt(o),v1=e.subt(p),d=v1.dot(v)<=0?p.dist(e):abs(v1.det(v.norm()));return d<s+h})
+var _l2_hit=(s)=>(function(p,o,e,h){let v=p.subt(o),v1=e.subt(p),d=abs(v1.det(v.norm()));return d<s+h})
+var _lc_hit=(s)=>(function(p,o,e,h){let t=new pn(0,0);return abs(e.dist(t)-p.dist(t))<s+h})
+var _p_hit=(V)=>(function(p,o,e,h){let v=p.subt(o).norm();return sdf_poly(e,V.map(i=>new pn(...i).cmult(v).add(p)))<h})
 
-//-----------stages!---------------
-//Simplifications.
-var Sbn=(v,c)=>[[[0,1,...c],[0,0],[s_s,0]],v,[0],0,[0],0,m*3/v,p_s]
-var SBn=(r,t,n,o)=>[list((o||0)-r,2*r/(t-1),t),clone(n,t),0,[0,0],[1,0],[0]]
-var Ssp=(c,x)=>[[0,0,...c],[-x,x],[-x,-x],[2*x,0]]
-var Ssb=(c,x)=>[[0,0,...c],[-2*x,x],[-x,0],[-2*x,-x],[x,0]]
-var Ssd=(c,x)=>[[0,0,...c],[x,0],[0,x],[-x,0],[0,-x]]
-var Ssc=(c,r,t)=>[[1,t||0,...c],[0,0],[r,0]]
-var Ssw=(c,x)=>[[0,0,...c],[0,0],[x,x],[-x,0],[x,-x]]
+//bullet event fucktions
+var ivp=(T)=>iv(T.p)?T.p:T.oldp//insideViewportPart
+var _e=(p,t)=>(p.remove||=+!iv(t.p))
+var _r_e=(f,z=1,m=1)=>((p,t)=>(((m&&!iv(t))||p.remove)&&(p.remove||=z?1:0,f(p,ivp(t),t)))) //SpawnResidueUponHitBorder fukktion. z=willDisappearUponHittingBorder m=willTriggerUponHittingBorder
+var _tb_e=(f,t,n=1,REMOVE=1)=>((p,T)=>(p.cd??=t,p.cd-=dt,(p.cd<0||(n&&!iv(T.p))||p.remove)&&(p.remove=REMOVE,f(p,ivp(T),T))))//timebomb
+var _em_e=(f,t,a=1)=>((p,T)=>(p.cd1??=t,p.cd1-=dt,p.cd1<0&&(p.cd1=t,f(p,ivp(T),T)),a&&_e(p,T)))//emit
 
+
+//settimeout. idk why i didn't use setTimeout :D xD
+var TIMEOUT=[];function Uto(){let t=TIMEOUT;for(let i=t.length-1;i>=0;i--){let x=t[i];x[0]-=dt;if(x[0]<=0){x[1]();t.splice(i,1)}}}
+function setT(f,i){TIMEOUT.push([i,f])}
+
+//disease decay only applies to player,dark(reduce attack AT) is NYI
+var all_atr='freeze;poison;ice;disease;decay;dark;holy;stun'.split(';')
+var atr_dur=[0,     0,     5,  5,      5,    5,   5,   0]
+var atr_color={freeze:[.8,.8,1],poison:[0,1,0],ice:[.2,.2,1],disease:[.7,.7,.7],decay:[.5,.5,.5],dark:[.8,0,.8],holy:[1,.7,1],stun:[1,1,1]}
+var atr_msg={freeze:"you're frozen(freeze for $2s)",poison:"you're Poisoned(-$1hp/s for $2s)",ice:"you're Iced(x$1 AGI for $2s)",disease:"you're in Disease(/$1 hp regen for $2s)",decay:"you're in Decay(/$1 max hp for $2s)",dark:"you're Weakened(/$1 AT for $2s)",holy:"you're Purged(x$1 dmg taken for $2s)",stun:"you're Stunned(stun for $2s)"}
+
+
+function Bd(f,v,c,k,y,o,u,OF,F){this.shape=f;this.move=v;this.event=toArray(c);this.param=k??{};this.dmg=y;this.ls=o;this.hit=u;this.speed=OF;this.target=F??'pla';this.pierce=0;this.atr={}}
+function Bs(p,v,d,plane={}){this.p=p;this.oldp=p.subt(v.mult(dt));this.d=d;this.param={...d.param};this.param.plane=plane;this.ls=d.ls}
+Bd[pt].spawn=function(I,IV,plane){let p=toArray(I.p),v=toArray(I.v);for(let i in p){if(this.shield)game.shields.push(game.b.length);game.b.push(new Bs(p[i].clone(),v[i].norm((IV??1)*this.speed),this,plane))}}
+Bs[pt].draw=function(a){let d=this.d;d.shape(this.p,this.p.subt(this.oldp).norm(1),a);}
+Bs[pt].U=function(i){let d=this.d;this.draw(1);let m=d.move(this.p,this.oldp,this.param);this.p.set(m.p);this.oldp.set(m.oldp);let Dmg=func(d.dmg)*dmg_mult(d)
+let T=game[d.target];for(let j in T){if(d.hit(this.p,this.oldp,T[j].p,T[j].d.hb)){
+//attributes
+for(let xx in all_atr){let a1=all_atr[xx],a_str=d.atr[a1]||0;if(a_str)T[j].atr[a1]=atr_dur[xx]==0?{str:Dmg,dur:a_str}:{str:a_str,dur:atr_dur[xx]}}
+//hp system
+let dmg1=min(T[j].d.resist?1:1e10,Dmg)*(T[j].atr.holy?.dur?T[j].atr.holy.str:1);T[j].hp-=dmg1;if(d.target=='pla')game.pla_dmg_total+=dmg1;if(!this.d.pierce){this.param.remove=1;break}}}
+//shield absorbs player's bullets
+if(d.target=='p')for(let x1 in game.shields){let s=game.shields[x1],T1=game.b[s];if(T1.d.hb&&d.hit(this.p,this.oldp,T1.p,T1.d.hb)){this.param.remove=1;break}}
+//events and lifespan
+d.event.forEach(t=>t(this.param,this));this.ls-=dt;if(this.ls<=0||this.param.remove){rlist.push(['b',i,this.param.remove])};}
+
+function Pd(f,v,c,k,y,o,u,b,i,t,ch){this.shape=f;this.move=v;this.agi=toArray(c);this.at=toArray(k);this.hp=y;this.hb=o;this.initv=u??(()=>new pn(0,0));this.param=b??{};this.sp=i??0;this.nd=t??0;this.da=toArray(ch??[]);this.agiMult=1}
+function Ps(p,v,d,n){this.p=p;this.oldp=p.subt(v.mult(dt));this.d=d;this.param={...d.param};this.hp=d.hp;this.agi=d.agi.map(i=>d.nd?0:rdm()*i);this.ip=n;this.atr={}}
+Pd[pt].spawn=function(x,z,y='p',t=1){let p=toArray(x);for(let i in p){game[y].push(new Ps(p[i].clone(),func(this.initv),this,z??this.sp))};if(y=='p'&&(z??this.sp)&&t){game.s[3]+=p.length}}
+Ps[pt].U=function(i){let d=this.d;let m=d.move(this.p,this.oldp,this.param);let A=this.atr;
+//moving
+if(!(A.freeze?.dur)){this.p.set(m.p);this.oldp.set(m.oldp);}
+//visual
+d.shape(this.p,this.p.subt(this.oldp).norm(1),1);
+//attributes
+for(let i in A){A[i].dur=max(0,A[i].dur-dt)}
+//b o o m
+if(A.poison?.dur){this.hp-=dt*A.poison.str;if(this.isPlayer)game.pla_dmg_total+=dt*A.poison.str}
+if(this.hp<=0){this.param.remove=1;rlist.push([this.d.isPlayer?'pla':'p',i]);d.da.forEach(t=>t(this.param,this.p,this))}
+//attack system
+for(let i in d.at){A.stun?.dur||A.freeze?.dur||(this.agi[i]-=dt*d.agiMult*(A.ice?.dur?1/A.ice.str:1));if(this.agi[i]<0){this.agi[i]=d.agi[i];d.at[i]?.(this.param,this.p,this)}}
+}
+
+function spawnWave(i){let s=game.s,x=sd[lv][i];s[0]=i;s[1]=x[0];s[2]=0;s[3]=x[0]*sum(x[4])*game.enemyMult}
+function clearBullet(){game.b=[];game.shields=[];TIMEOUT=[]}
+function initStage(x){if(x>maxlv()){divdiv.innerHTML='You have passed all the stages'};lv=min(x,maxlv());game.p=[];game.f=[];game.fp=[];clearBullet();game.pla[0].hp=game.pla[0].d.hp;game.pla[0].param={};game.pla[0].atr={};game.pla_dmg_total=0;spawnWave(0)}
+function Us(){let x=sd[lv][game.s[0]],s=game.s;s[2]-=dt;if(s[2]<0){s[2]=s[1]<=1?1/0:x[2];s[1]--;for(let i in x[3]){pd[x[3][i]].spawn(list(0,0,x[4][i]*game.enemyMult).map(()=>func(x[1])),1,'p',0)}};if(s[3]<=0){if(s[0]>=sd[lv].length-1){(gamestate==0)&&nextstage()}else{spawnWave(s[0]+1)}}}
+function Ub(){for(let i in game.b){game.b[i].U(i)}}function Up(){for(let i in game.p){game.p[i].U(i)}}
+function Url(){for(let i=rlist.length-1;i>=0;i--){let r=rlist[i];if(game[r[0]][r[1]]){
+if(r[0]=='b'){(r[2]==1||!r[2])&&game.f.push([1,game[r[0]][r[1]]])};
+if(r[0]=='p'){let p=game[r[0]][r[1]];if(p.ip){game.s[3]--};game.fp.push([1,p])};
+if(r[0]=='pla'){gamestate==0&&!test_mode&&gameover()};
+if(r[0]=='b'){game.shields=game.shields.filter(xx=>xx!=r[1]).map(xx=>xx>r[1]?xx-1:xx)}//shield!
+(r[0]!='pla')&&game[r[0]].splice(r[1],1)};
+rlist.splice(i,1)}}
+function Uf(){for(let i=game.f.length-1;i>=0;i--){let f=game.f[i];f[0]-=2*dt;f[1].draw(f[0]);if(f[0]<0)game.f.splice(i,1)}}
+function Ufp(){let t='BOOM',w=new pn(ctx.measureText(t).width/2,0);for(let i=game.fp.length-1;i>=0;i--){let fp=game.fp[i];fp[0]-=1.5*dt;let pos=ctos(fp[1].p).subt(w);setcolor([1,1,1,fp[0]]);ctx.fillText(t,pos.x,pos.y);if(fp[0]<0)game.fp.splice(i,1)}}
+
+//stage stuff. gamestate 0=running,1=gameover,2=completestage
+function gameover(){gamestate=1;anim=dt}
+function nextstage(){gamestate=2;anim=dt}
+function Ua(){if(anim<=0)return 'Aw Fucks';anim+=dt;
+if(anim<1){let c=new pn(0.2+anim,0.2+anim);setcolor(gamestate==1?[1,0,0,(1-anim)**0.5]:[0,0,1,(1-anim)**0.5]);rect(pla.add(c),pla.subt(c),1)}
+else{setcolor([1,1,1,min(1,anim-1)]);ctx.fillRect(0,0,ca.w,ca.h)}
+if(anim>3){if(gamestate==1){initStage(lv)}else{initStage(lv+1)};gamestate=0;anim=0}}
+
+//player stufffffffffffffffffff
+var m0use=new pn(1.14514,1.919810);ca.onmousemove=function(e){m0use.set(CLAMP(stoc(new pn(e.offsetX,e.offsetY))))}
+function drawBorder(){setcolor([1,1,1]);rect(new pn(10,10),new pn(-10,-10),1)}
+function drawPla(){pla.set(m0use);let x=[[-1,-1],[1,-1],[0,2]].map(i=>new pn(i[0],i[1]).mult(0.15).add(pla));setcolor([1,1,1]);polygon(x)}
+var d_pla=(x=1)=>(()=>x*(1+lv)**0.4)
+function plaGetBv(i,p0s,T,AV=0){let j=-1;if(i>=4)j=nE(p0s);return i>=4?(j>=0?i-4+p0s.dir(game.p[j].p):i-4+pi/2):AV?i+T.oldp.dir(T.p):i}
+var plaSBn=(r,t,n,o=0,O=[0,0],AV=0)=>((param,pos,tHis)=>list(o-r,2*r/(t-1),t).forEach(i=>bd_pla[n].spawn({p:pos.add(new pn(O[0],O[1])),v:new pn(1,plaGetBv(i,pos,tHis,AV),1)})))
+var plaSBnr=(n)=>((P,p,t)=>bd_pla[n].spawn({p:p,v:new pn(1,rdm()*tau,1)}))
+var plaSBmine=(n,t,r,v1=1)=>function(P,p,T){let j=nE(pla);list(0,1,t).forEach(function(i){let c=(j>=0?game.p[j].p:pla).add(new pn(rdm()*r,rdm()*tau,1));bd_pla[n].spawn({p:p,v:c.subt(p)},v1*c.dist(p))})}
+//bullets!
+var bd_pla=[new Bd(S0([1,1,1],[[-s_s,0],[0,0]],1),_move,_e,{},d_pla(1),1/0,_hit(p_s),5,'p')]
+bd_pla[1]=new Bd(S1([1,1,1],.5,1),_move,_e,{},d_pla(3),1/0,_hit(.5),3,'p');bd_pla[2]=new Bd(bd_pla[0].shape,_b_move,_e,{},d_pla(1),10,_hit(p_s),5,'p');bd_pla[2].atr={ice:1.2}
+bd_pla[3]=new Bd(S1([1,1,1],1.5,1),_static,_tb_e(plaSBn(0,1,4,0),2),{},0,1/0,()=>0,0,'p');bd_pla[4]=new Bd(S1([1,1,1],1.5),_static,[],{},d_pla(5),dt,_hit(1.5),0,'p')
+bd_pla[5]=new Bd(S0([1,1,1],[[-.2,.1],[.2,0],[-.2,-.1]],1),_move,_r_e(SBrdm((P,p,t)=>plaSBn(5*pi/6,6,6,P.r0-tau)(P,p,t),pi)),{},d_pla(5),1/0,_hit(p_s),5,'p');bd_pla[6]=new Bd(S1([1,1,1],.2),_a_move(.3,1),_e,{},d_pla(2),5,_hit(.2),3,'p')
+bd_pla[7]=new Bd(Ssl([1,1,1],.5),_freeze,_tb_e(plaSBn(0,1,8,0,[0,0],1),1),{},0,1/0,()=>0,1,'p');bd_pla[8]=new Bd(Ssl([1,1,1]),_freeze,[],{},d_pla(3),.2,_l_hit(p_s),1,'p')
+bd_pla[9]=new Bd(bd_pla[5].shape,_move,_em_e(plaSBn(0,1,10),.2),{},d_pla(5),1/0,_hit(p_s),5,'p');bd_pla[10]=new Bd(S_cross([1,1,1],.2),_freeze,[],{},d_pla(3),2,_hit(.2),1,'p')
+bd_pla[11]=new Bd(S1([1,1,1],1,0,.75),_b_move,[],{},d_pla(10*dt),10,_hit(1),3,'p');bd_pla[11].pierce=1;bd_pla[12]=new Bd(S1([1,1,1],.3),_te_move(3),_em_e(plaSBnr(13),.2),{},0,10,()=>0,3,'p')
+bd_pla[13]=new Bd(bd_pla[0].shape,_a_move(.5,1),_e,{},d_pla(1),3,_hit(p_s),1,'p');bd_pla[14]=new Bd(S1([1,1,1],.1),_b_move,[],{},d_pla(1),15,_hit(.1),5,'p')
+bd_pla[15]=new Bd(bd_pla[5].shape,_b_move,_r_e(plaSBn(0,1,4),1,0),{},d_pla(3),20,_hit(p_s),5,'p');bd_pla[16]=new Bd(bd_pla[11].shape,_static,[],{},d_pla(2*dt),10,bd_pla[11].hit,0,'p');bd_pla[16].pierce=1
+bd_pla[17]=new Bd(bd_pla[5].shape,_move,_r_e(plaSBn(0,1,16)),{},d_pla(5),1/0,_hit(p_s),5,'p');bd_pla[18]=new Bd(S1([1,1,1],.2),_b_move,_em_e(plaSBn(0,1,0,4),1,0),{},()=>0,20,()=>0,5,'p')
+bd_pla[19]=new Bd(bd_pla[3].shape,_a_move(0.1,1),_tb_e(plaSBn(0,1,4),2),{},0,1/0,()=>0,Math.log(10),'p')
+
+//attack funcs
+var plaAt={'1':[.2,plaSBn(pi/8,5,0,pi/2)],'2':[1,mshot(SBrdm((P,p,t)=>plaSBn(0,1,1,P.r0-1.5*pi)(P,p,t),pi/8),7,.1)],'3':[.5,plaSBn(pi/8,5,2,pi/2)],
+'4':[.2,plaSBn(0,1,3,0)],'5':[2,SBrdm((P,p,t)=>plaSBn(5*pi/6,6,5,P.r0-tau)(P,p,t),pi)],'6':[.2,plaSBn(0,1,7,pi/2)],
+'7':[2,plaSBn(pi/8,3,9,pi/2)],'8':[2,plaSBn(0,1,11,4)],'9':[3,plaSBn(0,1,12,4)],
+'10':[.5,SBrdm((P,p,t)=>plaSBn(7*pi/8,8,14,P.r0-tau)(P,p,t),pi)],'11':[2,plaSBn(pi/8,5,15,4+tau)],'12':[1,plaSBn(0,1,17,pi/2)],
+'13':[3,plaSBn(pi/8,3,18,pi/2)],'14':[2,plaSBmine(19,8,3)]}
+var player=new Pd(drawPla,(p,o)=>({p:new pn(m0use.x,m0use.y),oldp:p}),...plaAt['11'],3,.2);player.isPlayer=true
+player.spawn(new pn(1.14514,1.919810),0,'pla')
+
+function Upla(){let p=game.pla[0],a=p.atr;if(p.hp>0){p.hp=min(p.d.hp/(a.decay?.dur?a.decay.str:1),p.hp+dt*p.d.hp/(10*(a.disease?.dur?a.disease.str:1)))}}
+
+
+//shortcuts.
+//shape (the shapes face right)
+function S0(c,x,t=0,isPlane=0,A=1){return ((p,v,a)=>poly(x.map(i=>new pn(i[0],i[1]).cmult(isPlane?new pn(1,0):v).add(p)),[...c,a<1?a:A],t))}
+function S1(c,r,t=0,A=1){return ((p,v,a)=>{setcolor([...c,a<1?a:A]);circle(p,r,t,0,tau)})}
+var S_wave=(c,r,t)=>((p,v,a)=>S1(c,r*(1-a*a),t,a)(p,v,a))//shockwave!
+function S_arc(c,r,O=[0,0]){return ((p,v,a)=>{let d=new pn(0,0).dir(v);setcolor([...c,a]);circle(p.add(new pn(O[0],O[1]).cmult(v.norm())),r,1,-d-r/2,-d+r/2)})}
+function S2(c){return ((p,v,a)=>(setcolor([...c,a]),ctx.fillRect(0,0,ca.w,ca.h)))}
+function drawHole(c,r){let w=ca.w,h=ca.h;ctx.beginPath();ctx.arc(ctos(c).x,ctos(c).y,r*0.5*h/vp.r,0,tau);ctx.lineTo(0,ctos(c).y);ctx.lineTo(0,h);ctx.lineTo(w,h);ctx.lineTo(w,0);ctx.lineTo(0,0);ctx.lineTo(0,ctos(c).y);ctx.closePath();ctx.fill()}
+function S_hole(c,r){return ((p,v,a)=>(setcolor([...c,a]),drawHole(p,r)))}
+function S_cross(c,r,u=0){let s=S0(c,[[-r,-r],[r,r]],1,u),s1=S0(c,[[r,-r],[-r,r]],1,u);return (p,v,a)=>(s(p,v,a),s1(p,v,a))}
+var Ssp=(c,x,t)=>S0(c,[[x,x],[-x,x],[0,-2*x]],t,1)
+var Ssb=(c,x,t)=>S0(c,[[x,2*x],[0,x],[-x,2*x],[0,-x]],t,1)
+var Ssd=(c,x,t,t1)=>S0(c,[[0,-x],[x,0],[0,x],[-x,0]],t,!t1);var Ssd2=(c,x,t,isPlane=1)=>S0(c,[[-x,-x],[x,-x],[x,x],[-x,x]],t,isPlane);
+var Ssc=(c,x,t)=>S1(c,x,t)
+var Ssw=(c,x,t)=>S0(c,[[0,0],[x,-x],[0,x],[-x,-x]],t,1)
+var Ssf=(c,x,t)=>S0(c,[[0,-x],[x/2,x],[x,0],[0,x],[-x,0],[-x/2,x]],t,1)
+function Ssl(c,A=1){return ((p,v,a)=>poly([p,p.add(v.norm(3*vp.r))],[...c,a<1?a:A],1))};function Ssl2(c,A=1){return ((p,v,a)=>poly([p.subt(v.norm(3*vp.r)),p.add(v.norm(3*vp.r))],[...c,a<1?a:A],1))}
+function Sslc(c,A=1){return (p,v,a)=>S1(c,p.dist(new pn(0,0)),1,A)(new pn(0,0),v,a)}
+
+
+var Nd=(x,p)=>x>=4?x-4+new pn(0,0).dir(tpla(p)):x//*normalize* the angles
+
+
+//bullet
+var Sbn=(v,c)=>new Bd(S0(c,[[0,0],[s_s,0]],1),_move,_e,{},1,1/0,_hit(p_s),v)
+
+//Simplifications o' Barrages(aka. plane attack function) DO=1 means dir>4 still hit player when there's offset
+function getBv(i,pos,tHis,O,DO,AV){return (AV?tHis.oldp.dir(tHis.p):0)+Nd(i,DO?pos.add(new pn(O[0],O[1])):pos)}
+var SBn=(r,t,n,o=0,O=[0,0],DO=0,AV=0,speedmult=1)=>((param,pos,tHis)=>list(o-r,2*r/(t-1),t).forEach(i=>bd[n].spawn({p:pos.add(new pn(O[0],O[1])),v:new pn(1,getBv(i,pos,tHis,O,DO,AV),1)},speedmult)))
+var SBnr=(n)=>((P,p,t)=>bd[n].spawn({p:p,v:new pn(1,rdm()*tau,1)}))//Sbrdm(f,pi) designed for attack funcs in bullet event
+function SBr(f,s,AGI=1,id=0){return ((param,p,t)=>{let e='r'+id;param[e]??=rdm()*2*pi;param[e]=mod(param[e]+s*AGI,2*pi);f(param,p,t)})} //s is angle velocity,f uses param['r'+id] as angle offset,used "function" to be reused by player
+function SBrdm(f,RANGE,id=0){return ((param,p,t)=>(param['r'+id]=(2*rdm()-1)*RANGE,f(param,p,t)))} //f uses param['r'+id] as angle offset
+function SBz(f,s,RANGE,AGI=1,id=0){return ((P,p,t)=>{let e='r'+id,e1='rd'+id;P[e]||=0;P[e1]||=1;P[e]+=P[e1]*s*AGI;if(abs(P[e])>RANGE)P[e1]=-sgn(P[e]);f(P,p,t)})} //zigzag rotate offset lol
+var SBcp=(n,r,id,o=0)=>((P,p,t)=>list(o,2*pi/n,n).forEach((i)=>bd[id].spawn({p:pla.add(new pn(r,i,1)),v:new pn(1,i+pi,1)})))//centered at player
+var SBs=(n,t)=>((P,p,T)=>pd[n].spawn(p,t))//spawn planes
+var SBst=(n,t,AV=1,speedmult=1)=>((P,p,T)=>list(0,1,t).forEach((i)=>bd[n].spawn({p:p,v:new pn(1,getBv(0,p,T,[0,0],0,AV),1)},speedmult*(i+1)/t)))//"Stalagmite" style attack!!
+var SBst_tp=(n,t)=>((P,p,T)=>list(0,1,t).forEach(i=>bd[n].spawn({p:p,v:tpla(p).norm()},p.dist(pla)*(i+1)/t)))//SBst shot at player(exact when bullet speed=1og(1/acceleration))
+var SBspl=(n,t,RANGE=pi,o=pi/2,speedmult=1)=>((P,p,T)=>list(0,1,t).forEach((i)=>bd[n].spawn({p:p,v:new pn(1,o+(2*rdm()-1)*RANGE,1)},rdm()*speedmult))) //Splash!
+var SBshape=(n,t,f,DOMAIN=tau)=>((P,p,T)=>list(0,1,t).forEach((i)=>bd[n].spawn({p:p,v:new pn(1,i*DOMAIN/t+(P.r0||0),1)},f(i*DOMAIN/t))))//make bullets fly out in a special pattern
+var SBsat=(n,t,r=1)=>((P,p,T)=>bd[n].spawn({p:list(0,1,t).map(i=>p.add(new pn(r,i*tau/t,1))),v:list(0,1,t).map(i=>new pn(0,0))},1,T))//satellite
+var SBmine=(n,t,r,v1=1)=>((P,p,T)=>list(0,1,t).forEach(function(i){let c=pla.add(new pn(rdm()*r,rdm()*tau,1));bd[n].spawn({p:p,v:c.subt(p)},v1*c.dist(p))}))//"throw" mines at player
+var SBcat=(n,t,R,g,t1me)=>function(P,p,T){for(let i=0;i<t;i++){let p1=pla.add(new pn(rdm()*R,rdm()*tau,1)).subt(p),x=p1.x/t1me,y=p1.y/t1me+g*t1me/2;bd[n].spawn({p:p,v:new pn(x,y)},Math.sqrt(x*x+y*y))}}//catapult(set bullet speed to 1)
+
+
+function polyshape(m,n){let t=pi*n/m;return (i)=>Math.cos(t)/Math.cos(t-mod(i,2*t))}//DOMAIN=n*tau
+
+
+//stage
+var st0=()=>new pn((2*rdm()-1)*9.999,(2*rdm()-1)*9.999);var SBnrp=(n,v,t0p=9.99)=>((P,p,t)=>bd[n].spawn({p:new pn((2*rdm()-1)*9.99,(+t0p)?t0p:(rdm()*2-1)*9.99),v:v}))//rdm position. also known as "rain"
+var st1=()=>new pn((2*rdm()-1)*9.999,rdm()*9.999)
+var st2=()=>new pn(0,0)
+var st3=()=>new pn(rdm()*10,rdm()*6.283,1)
+
+
+
+
+//bullet data(shapefunc,movefunc,eventfuncs,param,dmgfunc,lifespan,hitenemydetectionfunc,movespeed,?target) will remove if param.remove
+//plane data(shapefunc,movefunc,agiarray,attackfuncs,hp,hitbox,?initvelocityfunc,?param,?spawnPrimaryPlane,?noAGIDelay,?deathAttackfuncs)
+//stage data=[[waves,spawnposfunc,interval,planeIDs,planeamounts],...] state=[currentscene,wavesleft,waveCD,enemystokill]
+//--------------------LEVELS--------------------
+var initv=(v)=>(()=>new pn(v,rdm()*tau,1))
+var initvr=(v)=>(()=>new pn(v*rdm(),rdm()*tau,1))
+function EF(f,n,i){return (f(),list(i,i,n-1).forEach(j=>setT(f,j)))}
+function mshot(f,t,i){return ((P,p,T)=>EF(()=>f(P,p,T),t,i))}//multishot
 //lv1
-bd[0]=Sbn(3,[1,0,0]);Bd[0]=[[-pi/2],[0],0,[0,0],[1,0],[0]];Bd[1]=Bd[0].mod(0,[4]);Bd[2]=SBn(-pi/4,5,0,4+tau);pd[0]=[Ssp([1,0,0],.3),[3],[0],1,3,10,[0],.2];pd[1]=[pd[0][0],[2],[1],0,0,15,[0],.2];pd[2]=[Ssb([1,1,0],.6),[2.5],[2],1,2,50,[0],.4];sd[0]=[[[1,0,1],[0],[3]],[[1,0,1],[0,1],[5,2]],[[1,0,1],[2],[1]]]
+bd[0]=Sbn(3,[1,0,0]);pd[0]=new Pd(Ssp([1,0,0],.3),_r_move(3),3,SBn(0,1,0,-pi/2),10,.2);pd[1]=new Pd(pd[0].shape,_static,2,SBn(0,1,0,4),15,.2);pd[2]=new Pd(Ssb([1,1,0],.6),_r_move(2),2.5,SBn(-pi/4,5,0,4+tau),50,.4)
+sd[0]=[[1,st1,0,0,3],[1,st1,0,[0,1],[5,2]],[1,st1,0,2,1]]//convert from old ver.:[k,x,y,[],[]]-->[y,stk,x,[],[]]
 //lv2
-Bd[3]=SBn(pi/8,5,0,-pi/2);Bd[4]=Bd[0].mod(3,[-1,0]);Bd[5]=Bd[0].mod(3,[1,0]);pd[3]=[Ssp([.5,.5,.5],.3),[6],[3],1,2,20,[[0]],.3];pd[4]=[Ssb([.5,.5,.5],.6),[1/6,1/6,3],[4,5,2],1,1,60,[0],.5];sd[1]=[[[1,2,5],[3],[1]],[[1,0,1],[3,1],[5,8]],[[1,0,1],[4],[1]]]
+pd[3]=new Pd(Ssp([.5,.5,.5],.3),_r_move(2),6,SBn(pi/8,5,0,-pi/2),20,.3);pd[4]=new Pd(Ssb([.5,.5,.5],.6),_r_move(1),[1/6,1/6,3],[SBn(0,1,0,-pi/2,[-1,0]),SBn(0,1,0,-pi/2,[1,0]),pd[2].at[0]],60,.5)
+sd[1]=[[5,st1,2,3,1],[1,st1,0,[3,1],[5,8]],[1,st1,0,4,1]]
 //lv3
-sd[2]=[[[1,10,5],[0,1,3],[3,3,3]],[[2,0,1],[1],[5]]]
+sd[2]=[[5,st1,10,[0,1,3],[3,3,3]],[1,st2,0,1,5]]
 //lv4
-Bd[6]=[[-pi*.62,-pi*.38],[0,0],0,[0,0],[3,.3],[0]];pd[5]=[Ssd([.5,.5,.5],.3),[2],[6],1,2,30,[0],.2];pd[6]=[Ssd([.3,.3,.3],.6),[1,2],[3,1],1,2,80,[0],.5];sd[3]=[[[1,5,3],[3,5],[3,2]],[[1,8,10],[3,5],[1,1]],[[1,0,1],[6],[1]]]
+pd[5]=new Pd(Ssd([.5,.5,.5],.3),_r_move(2),2,mshot(SBn(.12*pi,2,0,-pi/2),3,.3),30,.2);pd[6]=new Pd(Ssd([.3,.3,.3],.6),_r_move(2),[1,2],[pd[3].at[0],pd[1].at[0]],80,.5)
+sd[3]=[[3,st1,5,[3,5],[3,2]],[10,st1,8,[3,5],[1,1]],[1,st1,0,6,1]]
 //lv5
-pd[7]=[Ssp([1,.5,0],.2),[1],[0],3,3,30,[0],.2];pd[8]=[Ssb([1,.5,0],.4),[1],[1],1,2,40,[0],.3];sd[4]=[[[1,0,1],[3,5,7],[3,3,1]],[[1,1,2],[3,5,7],[3,4,2]],[[1,0,1],[8],[5]]]
+pd[7]=new Pd(Ssp([1,.5,0],.2),_b_move,1,pd[0].at[0],30,.2,initv(3));pd[8]=new Pd(Ssb([1,.5,0],.4),_r_move(2),1,pd[1].at[0],50,.3)
+sd[4]=[[1,st1,0,[3,5,7],[3,3,1]],[2,st1,1,[3,5,7],[3,4,2]],[1,st1,0,[8],[5]]]
 //lv6
-pd[9]=[Ssp([0,1,0],.3),[1],[1],3,3,40,[0],.2];Bd[7]=SBn(2*pi/3,3,0,0);pd[10]=[Ssb([1,1,0],.6),[.3,2],[7,2],1,5,150,[[1,pi/3],[0]],.5];sd[5]=[[[0,1,7],[9],[1]],[[1,0,1],[3,5],[5,5]],[[1,0,1],[9,10],[1,1]]]
+pd[9]=new Pd(Ssp([0,1,0],.3),_b_move,1,pd[1].at[0],40,.2,initv(3));pd[10]=new Pd(Ssb([1,1,0],.6),_r_move(5),[.3,2],[SBr((P,p,t)=>SBn(2*pi/3,3,0,P.r0-tau)(P,p,t),pi/3,.3),pd[2].at[0]],150,.5)
+sd[5]=[[7,st0,1,9,1],[1,st1,0,[3,5],[5,5]],[1,st1,0,[9,10],[1,1]]]
 //lv7
-bd[1]=[[[1,0,.5,.5,.5],[0,0],[.8,0]],1,[0],0,[0],0,25,.8];Bd[8]=[[-pi/2],[1],0,[0,0],[1,0],[0]];pd[11]=[Ssp([.7,.7,.7],.3),[5],[8],1,3,50,[0],.3];sd[6]=[[[1,10,3],[11,3,5,9],[2,2,2,1]]]
+bd[1]=new Bd(Ssc([.5,.5,.5],.8),_move,_e,{},3,1/0,_hit(.8),1);pd[11]=new Pd(Ssp([.7,.7,.7],.3),_r_move(3),5,SBn(0,1,1,-pi/2),50,.3);
+sd[6]=[[3,st1,10,[11,3,5,9],[2,2,2,1]]]
 //lv8
-Bd[9]=Bd[4].mod(0,[4]).concat([1]);Bd[10]=Bd[5].mod(0,[4]).concat([1]);pd[12]=[pd[0][0],[.5,.5],[9,10],1,3,50,[0],.3];sd[7]=[[[1,5,20],[3,12],[1,1]]]
+pd[12]=new Pd(pd[0].shape,_r_move(3),[.5,.5],[SBn(0,1,0,4,[-1,0]),SBn(0,1,0,4,[1,0])],50,.3,()=>new pn,{},0,1)
+sd[7]=[[20,st1,5,[3,12],[1,1]]]
 //lv9
-bd[2]=bd[0].mod(2,[1,1]).mod(6,30);Bd[11]=Bd[1].mod(1,[2]);Bd[12]=SBn(-5*pi/6,6,0,0).mod(3,[-2,0]);Bd[13]=Bd[12].mod(3,[2,0]);pd[13]=[Ssb([1,0,0],.7),[.5,.5,3],[12,13,11],1,3,200,[0],.5];sd[8]=[[[1,15,5],[3,5,9,12],[1,1,1,1]],[[1,0,1],[13],[1]]]
-//lv10!
-bd[3]=[[[1,0,1,0,0],[0,0],[p_s,0]],1.5,[0],0,[0],0,20,p_s];bd[4]=Sbn(5,[1,1,0]);Bd[14]=SBn(pi/8,5,3,-pi/2);Bd[15]=[[4],[4],0,[0,0],[3,.2],[0]];Bd[16]=SBn(3*pi/8,11,3,-pi/2);Bd[17]=SBn(pi/8,5,4,4+tau);pd[14]=[Ssp([1,1,0],.4),[2.5],[14],1,3,80,[0],.3];pd[15]=[Ssp([0,.3,0],.3),[3],[15],1,3,50,[0],.2];pd[16]=[Ssb([.8,.8,.8],.4),[3,1.4],[16,2],1,2,300,[0],.4];pd[17]=[Ssb([.8,.8,0],.4),[3],[17],1,2,100,[0],.4];sd[9]=[[[1,10,3],[9,14],[2,2]],[[1,0,1],[14,15],[2,5]],[[1,0,1],[9,14,15],[3,3,3]],[[1,0,1],[16,17],[1,2]]]
+bd[2]=new Bd(bd[0].shape,_b_move,[],{},1,30,_hit(p_s),3);pd[13]=new Pd(Ssb([1,0,0],.7),_r_move(3),[.5,.5,2],[SBn(-5*pi/6,6,0,0,[-2,0]),SBn(-5*pi/6,6,0,0,[2,0]),SBn(0,1,2,4)],200,.5)
+sd[8]=[[5,st1,15,[3,5,9,12],[1,1,1,1]],[1,st1,0,13,1]]
+//lv10
+bd[3]=new Bd(Ssc([1,0,0],p_s),_move,_e,{},1,1/0,_hit(p_s),1.5);bd[4]=Sbn(5,[1,1,0]);pd[14]=new Pd(Ssp([1,1,0],.4),_r_move(3),2.5,SBn(pi/8,5,3,-pi/2),80,.3);pd[15]=new Pd(Ssp([0,.3,0],.3),_r_move(3),3,mshot(SBn(0,1,4,4),3,.2),50,.2);pd[16]=new Pd(Ssb([.8,.8,.8],.4),_r_move(2),[3,1.4],[SBn(3*pi/8,11,3,-pi/2),pd[2].at[0]],300,.4);pd[17]=new Pd(Ssb([.8,.8,0],.4),_r_move(2),3,SBn(pi/8,5,4,4+tau),100,.4)
+sd[9]=[[3,st1,10,[9,14],[2,2]],[1,st1,0,[14,15],[2,5]],[1,st1,0,[9,14,15],[3,3,3]],[1,st1,0,[16,17],[1,2]]]
 //lv11
-Bd[18]=SBn(pi/8,5,4,-pi/2);pd[18]=[Ssb([1,.5,0],.6),[.3,2,2.5],[7,2,18],1,5,250,[[1,pi/3],[0],[0]],.5];sd[10]=[[[1,20,5],[11,14,15,12],[1,2,2,2]],[[1,0,1],[18],[1]]]
+pd[18]=new Pd(Ssb([1,.5,0],.6),_r_move(5),[.3,2,2.5],[...pd[10].at,SBn(pi/8,5,4,-pi/2)],250,.5);
+sd[10]=[[5,st1,20,[11,14,15,12],[1,2,2,2]],[1,st1,0,18,1]]
 //lv12
-Bd[19]=Bd[3].mod(3,[-1,0]);Bd[20]=Bd[3].mod(3,[1,0]);pd[19]=[Ssp([.3,.3,.3],.3),[5,5],[19,20],1,3,75,[0],.2];sd[11]=[[[1,2,5],[19],[1]],[[1,0,1],[19,15],[5,8]]]
+pd[19]=new Pd(Ssp([.3,.3,.3],.3),_r_move(3),5,function(P,p,t){let x=(o)=>SBn(pi/8,5,0,-pi/2,[o,0])(P,p,t);x(1);x(-1)},75,.2);
+sd[11]=[[5,st1,2,19,1],[1,st1,0,[19,15],[5,8]]]
 //lv13
-sd[12]=[[[1,10,5],[14,15,19],[3,3,3]],[[2,0,1],[15],[5]]]
+sd[12]=[[5,st1,10,[14,15,19],[3,3,3]],[1,st2,0,[15],[5]]]
 //lv14
-pd[20]=[Ssb([1,.5,.5],.5),[2,2,1],[19,20,2],1,2,250,[0],.4];sd[13]=[[[1,0,1],[19,12,7],[3,3,1]],[[1,1,2],[19,12,7],[3,4,2]],[[1,0,1],[20],[1]]]
-//lv15!
-Bd[21]=SBn(-7*pi/8,8,0,0);Bd[22]=[[],[],0,[0,0],[1,0],[1,9]];pd[21]=[Ssc([.3,.3,.3],1),[10,1],[22,21],1,1,500,[[0],[1,pi/8]],1];sd[14]=[sd[0][0],[[1,0,1],[21],[1]]]
-//MORE BULLETS ! ! ! !
-bd[5]=[Ssc([1,0,0],.3),3,[0],21,[2,3],0,5,.3];bd[6]=bd[2].mod(6,10);bd[7]=Sbn(3,[0,0,1]);Bd[23]=SBn(5*pi/6,6,7,0);bd[8]=[Ssc([0,0,1],.2),3,[0],23,[1,2],0,10,.2];bd[9]=Sbn(3,[0,1,0]).mod(2,[2,1]).mod(6,10);Bd[24]=SBn(pi/8,3,0,0);bd[10]=Sbn(3,[1,0,0]).mod(3,24).mod(4,[3,0,1]);bd[11]=Sbn(3,[1,.5,0]).mod(3,2).mod(4,[3]);bd[12]=Sbn(3,[1,0,1]).mod(5,10)
-//lv16
-sd[15]=[[[0,1,8],[15],[1]],[[1,0,1],[15],[5]]]
+pd[20]=new Pd(Ssb([1,.5,.5],.5),_r_move(2),[2,1],[pd[19].at[0],pd[2].at[0]],250,.4);pd[43]=new Pd(Ssp([1,.5,0],.3),_r_move(3),3,SBn(0,1,11,pi/2),80,.2)
+sd[13]=[[1,st1,0,[19,12,7,43],[3,3,1,1]],[2,st1,1,[19,12,7,43],[3,4,2,2]],[1,st1,0,20,1]]
+//lv15
+pd[21]=new Pd(Ssc([.3,.3,.3],1),_r_move(1),[5,1],[SBs(9),SBr((P,p,t)=>SBn(-7*pi/8,8,0,P.r0-tau)(P,p,t),pi/8,1)],300,1)
+sd[14]=[sd[0][0],[1,st1,0,21,1]]
+//1v16
+sd[15]=[[8,st0,1,15,1],[1,st1,0,15,5]];
 //lv17
-sd[16]=[[[1,0,1],[14,15],[5,2]],[[2,1,5],[15],[2]]]
+pd[44]=new Pd(pd[19].shape,_r_move(3),4,SBn(pi/8,5,6,-pi/2),90,.2);sd[16]=[[1,st1,0,[14,15,44],[5,2,2]],[5,st2,1,[15,44],[2,1]]];
 //lv18
-sd[17]=[[[1,0,1],[9,15],[4,4]],[[0,0,1],[9,14],[6,1]]]
+sd[17]=[[1,st1,0,[9,15,44],[4,4,4]],[1,st0,0,[9,14,43,44],[6,2,3,3]]];
 //lv19
-sd[18]=[[[1,3,10],[15],[2]]]
+sd[18]=[[10,st1,4,[15,43,44],[2,1,1]]]
 //lv20
-pd[22]=pd[21].mod(1,[15,1,5]).mod(2,[22,21,8]);sd[19]=[sd[14][0],[[1,0,1],[22],[1]]]
+pd[22]=new Pd(pd[21].shape,_r_move(1),[10,1,5],[...pd[21].at,pd[11].at[0]],400,1)
+sd[19]=[sd[0][0],[1,st1,0,21,1],[3,st1,3,22,1]]
+//what am i fuggin' doing
+bd[5]=new Bd(Ssc([1,0,0],.3),_move,_tb_e(SBn(-7*pi/8,8,0,0),3),{},1,1/0,_hit(.3),3);bd[6]=new Bd(bd[0].shape,_b_move,[],{},1,10,_hit(p_s),3);bd[7]=Sbn(3,[0,0,1]);bd[8]=new Bd(Ssc([0,0,1],.2),_move,_em_e(SBn(5*pi/6,6,7,0),2),{},1,1/0,_hit(.2),3);bd[9]=new Bd(Sbn(3,[0,1,0]).shape,_bp_move(1),[],{},1,10,_hit(p_s),3);bd[10]=new Bd(bd[0].shape,_b_move,_r_e(SBn(pi/8,3,0,0,[0,0],0,1)),{},1,1/0,_hit(p_s),3);bd[11]=new Bd(Sbn(3,[1,.5,0]).shape,_move,_r_e(pd[2].at[0]),{},1,1/0,_hit(p_s),3);bd[12]=new Bd(Sbn(3,[1,0,1]).shape,_tp_move(3,10),_e,{},1,30,_hit(p_s),3)
+bd[7].atr={ice:1.5}
 //lv21
-pd[23]=[Ssd([0,0,.7],.3),[.3],[7],1,5,100,[[1,pi/3]],.3];sd[20]=[[[1,10,3],[19,23],[3,1]],[[1,0,1],[23],[5]]]
+pd[23]=new Pd(Ssd([0,0,.7],.3),_r_move(5),.3,pd[10].at[0],100,.3);
+sd[20]=[[3,st1,10,[19,23,44],[3,1,1]],[1,st1,0,23,5]]
 //lv22
-pd[24]=[Ssd([0,.7,0],.3),[1],[21],1,5,100,[[1,pi/8]],.3];sd[21]=[[[1,10,3],[23,24],[3,1]],[[1,0,1],[24],[5]]]
+pd[24]=new Pd(Ssd([0,.7,0],.3),_r_move(5),1,pd[21].at[1],100,.3);
+sd[21]=[[3,st1,10,[23,24,43],[3,1,1]],[1,st1,0,24,5]]
 //lv23
-pd[25]=[Ssp([0,1,1],.3),[3],[2],3,3,100,[0],.3];Bd[26]=SBn(0,1,12,4+tau);pd[26]=[Ssb([0,1,1],.5),[.2],[26],1,2,250,[0],.4];sd[22]=[[[1,0,1],[25,23],[1,3]],[[1,0,1],[26],[1]]]
+pd[25]=new Pd(Ssp([0,1,1],.3),_b_move,3,pd[2].at[0],100,.3,initv(3));pd[26]=new Pd(Ssb([0,1,1],.5),_r_move(2),.2,SBn(0,1,12,4+tau),250,.4);
+sd[22]=[[1,st1,0,[25,23],[1,3]],[1,st1,0,26,1]]
 //lv24
-pd[27]=pd[10].mod(1,[.3,1]).mod(2,[7,17]).mod(5,300);sd[23]=[[[1,0,1],[24],[2]],[[2,0,1],[25],[7]],[[1,0,1],[27],[1]]]
+pd[27]=new Pd(pd[10].shape,pd[10].move,[.3,1],[pd[10].at[0],pd[17].at[0]],300,.5);
+sd[23]=[[1,st1,0,24,2],[1,st2,0,25,10],[1,st1,0,27,1]]
 //lv25
-Bd[25]=Bd[0].mod(1,[5]);pd[28]=pd[0].mod(2,[25]).mod(5,150);sd[24]=[[[1,15,5],[28,25],[2,1]]]
+pd[28]=new Pd(pd[0].shape,_r_move(3),3,SBn(0,1,5,-pi/2),150,.2);
+sd[24]=[[5,st1,15,[28,25],[2,1]]]
 //lv26
-sd[25]=[[[1,15,5],[25,28],[3,3]]]
+sd[25]=[[5,st1,15,[25,28],[3,3]]]
 //lv27
-bd[13]=[bd[4][0],4,[1,1.2],0,[0],0,10,p_s];Bd[27]=SBn(pi/8,5,13,4+tau);pd[29]=pd[27].mod(2,[7,27]);sd[26]=[[[1,2,5],[28],[1]],[[1,0,1],[29],[1]]]
+bd[13]=new Bd(bd[4].shape,_ba_move(1.1),[],{},1,15,_hit(p_s),4);pd[29]=new Pd(pd[27].shape,pd[27].move,[.3,1],[pd[10].at[0],SBn(pi/8,5,13,4+tau)],320,.5);
+sd[26]=[[5,st1,2,28,1],[1,st1,0,29,1]]
 //lv28
-sd[27]=[[[1,2,5],[28,15],[1,1]],[[1,1,4],[7,9,25],[1,1,1]]]
+sd[27]=[[5,st1,2,[28,15],[1,1]],[4,st1,1,[7,9,25],[1,1,1]]]
 //lv29
-Bd[28]=SBn(pi/8,5,6,4+tau);pd[30]=[Ssp([.6,0,0],.3),[3],[28],2,4,120,[0],.3];sd[28]=[[[1,10,5],[28,30],[2,1]],[[1,0,1],[30],[5]]]
+pd[30]=new Pd(Ssp([.6,0,0],.3),_r_move(4,1),3,SBn(pi/8,5,6,4+tau),120,.3);
+sd[28]=[[5,st1,10,[28,30],[2,1]],[1,st1,0,30,5]]
 //lv30
-Bd[29]=Bd[22].mod(5,[1,25]);pd[31]=pd[22].mod(2,[29,21,8]);sd[29]=un(sd[19]);sd[29][1][1]=[31]
+pd[31]=new Pd(pd[21].shape,_r_move(1),[15,1,5],[SBs(25),pd[21].at[1],pd[11].at[0]],500,1)
+sd[29]=[[1,st1,0,0,10],[1,st1,0,[21,22,31],[2,1,1]]]
 //lv31
-pd[32]=[Ssp([0,1,1],.4),[10],[29],0,0,150,[0],.3];sd[30]=[[[1,0,1],[32,28,23],[1,2,2]],[[1,5,3],[32,24],[1,1]]]
+pd[32]=new Pd(Ssp([0,1,1],.4),_static,10,pd[31].at[0],150,.3);
+sd[30]=[[1,st1,0,[32,28,23],[1,2,2]],[3,st1,5,[32,24],[2,1]]]
 //lv32
-sd[31]=[[2,4,6],[8,10,13],[16,18,20],[26,27,29]].map((i)=>[[1,0,1],i,clone(1,i.length)])
+sd[31]=[[2,4,6],[8,10,13],[16,18,20],[26,27,29]].map((i)=>[1,st1,0,i,i.map(()=>1)])
 //lv33
-Bd[30]=SBn(2*pi/3,3,6,0);Bd[31]=SBn(7*pi/8,8,6,0);pd[33]=pd[23].mod(2,[30]);pd[34]=pd[24].mod(2,[31]);sd[32]=[[[1,10,3],[33,34],[1,1]],[[1,0,1],[34],[3]]]
+pd[33]=new Pd(pd[23].shape,pd[23].move,.3,SBr((P,p,t)=>SBn(2*pi/3,3,6,P.r0-tau)(P,p,t),pi/3,.3),100,.3);pd[34]=new Pd(pd[24].shape,pd[24].move,1,SBr((P,p,t)=>SBn(-7*pi/8,8,6,P.r0-tau)(P,p,t),pi/8,1),100,.3);
+sd[32]=[[3,st1,10,[33,34],[1,1]],[1,st1,0,34,3]]
 //lv34
-pd[35]=[Ssb([0,.4,.4],.4),[1],[28],3,4,350,[0],.3];sd[33]=[[[1,10,5],[28,30],[3,1]],[[1,0,1],[35],[1]]]
+pd[35]=new Pd(Ssb([0,.4,.4],.4),_b_move,1,pd[30].at[0],350,.3,initv(4));
+sd[33]=[[5,st1,10,[28,30],[3,1]],[1,st1,0,35,1]]
 //lv35
-bd[14]=Sbn(10,[0,1,.5]);Bd[32]=SBn(pi/4,15,14,4+tau);bd[15]=[[[0,1,0,1,.5],[-s_s,0],[s_s,0]],3,[0],32,[3],0,10,p_s];bd[16]=[[[1,0,.3,0,0],[0,0],[1,0]],3,[1,1],0,[0],66,6666,1];Bd[33]=SBn(0,1,15,4+tau);Bd[34]=SBn(0,1,16,4+tau);pd[36]=[Ssb([0,1,.5],.5),[2],[33],1,3,222,[0],.4];pd[37]=[Ssb([.3,0,0],.5),[6666],[34],1,3,222,[0],.4,1];sd[34]=[[[1,0,1],[30,32],[5,2]],[[1,0,1],[36,37],[1,1]]]
+bd[14]=Sbn(10,[0,1,.5]);bd[15]=new Bd(S0([0,1,.5],[[-s_s,0],[s_s,0]],1),_move,_r_e(SBn(pi/4,15,14,4+tau)),{},1,1/0,_hit(p_s),3);bd[16]=new Bd(Ssc([.3,0,0],1),_tp_move(3),[],{},66,6666,_hit(1),3);bd[16].pierce=1;pd[36]=new Pd(Ssb([0,1,.5],.5),_r_move(3),2,SBn(0,1,15,4+tau),333,.4);pd[37]=new Pd(Ssb([.3,0,0],.5),_r_move(3),6666,SBn(0,1,16,4+tau),666,.4,()=>new pn,{},0,1);
+sd[34]=[[1,st1,0,[30,32],[5,2]],[1,st1,0,[36,37],[1,1]]]
 //lv36
-Bd[35]=SBn(pi/8,5,5,-pi/2);pd[38]=[Ssb([1,0,0],.5),[3],[35],1,3,400,[0],.4];sd[35]=[[[1,0,1],[32],[3]],[[1,0,1],[38],[1]]]
+pd[38]=new Pd(Ssb([1,0,0],.5),_r_move(3),3,SBn(pi/8,5,5,-pi/2),400,.4);
+sd[35]=[[1,st1,0,[32,30],[3,3]],[1,st1,0,38,1]]
 //lv37
-Bd[36]=SBn(pi/8,3,8,-pi/2);pd[39]=[Ssp([0,0,1],.3),[5],[36],1,6,120,[0],.3];sd[36]=[[[1,5,10],[39],[1]]]
+pd[39]=new Pd(Ssp([0,0,1],.3),_r_move(6),5,SBn(pi/8,3,8,-pi/2),120,.3);
+sd[36]=[[10,st1,5,39,1],[1,st1,0,[39,33,34],[3,1,1]]]
 //lv38
-pd[40]=[Ssd([.7,.7,0],.3),[.3,.3],[7,7],1,5,150,[[1,-pi/3],[1,pi/3]],.3];sd[37]=[[[2,0,1],[40],[3]],[[1,0,1],[30,40],[3,1]]]
+pd[40]=new Pd(Ssd([.7,.7,0],.3),_r_move(5),.3,SBr((P,p,t)=>(SBn(2*pi/3,3,0,P.r0-tau)(P,p,t),SBn(2*pi/3,3,0,-P.r0)(P,p,t)),pi/3,.3),150,.3);
+sd[37]=[[1,st2,0,40,3],[1,st1,0,[30,40],[3,1]]]
 //lv39
-pd[41]=[Ssd([0,.7,.7],.3),[.3,1],[7,21],1,5,150,[[1,pi/3],[1,pi/8]],.3];sd[38]=[[[2,0,1],[41],[3]],[[1,0,1],[30,41],[3,1]]]
-//lv40!
-var co1=[.7,0,.7],sh1=[[0,1,...co1],[-s_s,0],[s_s,0]]
-bd[17]=Sbn(4,co1).mod(5,.3);Bd[37]=SBn(pi/8,5,17,4+tau);bd[18]=[[[1,0,...co1],[0,0],[.2,0]],3,[1,.8],37,[1,2],0,10,.2];bd[19]=[[[1,0,...co1],[0,0],[2,0]],1e-5,[0],0,[0],0,dt,2];Bd[38]=SBn(.98*pi,50,17,0);Bd[39]=SBn(5*pi/6,6,18,0);Bd[40]=SBn(0,1,19,0);
-bd[21]=[sh1,5,[0],38,[3],0,10,p_s];bd[22]=bd[21].mod(3,40);bd[20]=bd[21].mod(3,39);Bd[55]=SBn(0,1,20,4+tau);Bd[56]=SBn(0,1,21,4+tau);Bd[57]=SBn(0,1,22,4+tau);pd[42]=[Ssb(co1,.5),[5],[57],0,0,200,[0],.5];pd[43]=pd[42].mod(1,[6]).mod(2,[55]);pd[44]=pd[42].mod(1,[7]).mod(2,[56]);sd[39]=[sd[19][0],[[2,0,1],[42,43,44],[1,1,1]]]
+pd[41]=new Pd(Ssd([0,.7,.7],.3),_r_move(5),[.3,1],[pd[23].at[0],SBr((P,p,t)=>SBn(-7*pi/8,8,0,P.r1-tau)(P,p,t),pi/8,1,1)],150,.3);
+sd[38]=[[1,st2,0,41,3],[1,st1,0,[30,41],[3,1]]]
+//lv40
+var co1=[.7,0,.7],sh1=S0(co1,[[-s_s,0],[s_s,0]],1)
+{let c=co1,s=sh1;bd[17]=Sbn(4,c);bd[18]=new Bd(S1(c,.2),_b_move,_em_e(SBn(pi/8,5,17,4+tau),.8),{},1,10,()=>0,3);bd[19]=new Bd(S1(c,2),_static,[],{},5,dt,_hit(2),0);bd[21]=new Bd(s,_move,_r_e(SBn(.98*pi,50,17,0)),{},1,1/0,()=>0,5);bd[22]=new Bd(s,_move,_r_e(SBn(0,1,19,0)),{},1,1/0,()=>0,5);bd[20]=new Bd(s,_move,_r_e(SBn(5*pi/6,6,18,tau+4)),{},1,1/0,()=>0,5);pd[42]=new Pd(Ssb(c,.5),_static,[5,5,5],[SBn(0,1,20,4+tau),SBn(0,1,21,4+tau),SBn(0,1,22,4+tau)],600,.4);pd[43]=pd[43];pd[44]=pd[44]//pd[43] and pd[44] are already used lol
+sd[39]=[sd[19][0],[1,st2,0,42,1]]}
 //lv41
-var SB1=(D,r)=>[[D],[3],1,polar(-r,D),[1,0],[0]]
-Bd[41]=SB1(0,3);Bd[42]=SB1(pi/2,3);Bd[43]=SB1(pi,3);Bd[44]=SB1(-pi/2,3);bd[23]=[[[1,1,...co1],[0,0],[2,0]],1e-5,[0],40,[2,2],0,3,-20/3];Bd[45]=SBn(0,1,23,0).mod(2,1);pd[45]=[Ssp([1,.5,.5],.3),clone(2,4),list(41,1,4),1,3,150,[0],.3];pd[46]=[Ssb([.5,.5,1],.4),[0.01],[45],1,3,420,[0],.4];sd[40]=[[[0,0,1],[45],[5]],[[2,0,1],[32,46],[1,1]]]
+bd[23]=new Bd(Ssc(co1,2,1),_static,_tb_e(SBn(0,1,19,0),2,0),{},1,3,()=>0,0);pd[45]=new Pd(Ssp([1,.5,.5],.3),_r_move(3),2,SBcp(4,3,3),150,.3);pd[46]=new Pd(Ssb([.5,.5,1],.4),_r_move(3),0.01,()=>bd[23].spawn({p:pla,v:new pn}),420,.4);
+sd[40]=[[1,st0,0,45,5],[1,st2,0,[32,46],[1,1]]]
 //lv42
-Bd[46]=SBn(2*pi/3,3,5,0);pd[47]=pd[23].mod(2,[46]).mod(5,420);sd[41]=[[[1,15,3],[39,41],[2,1]],[[1,0,1],[47],[1]]]
+pd[47]=new Pd(Ssd([0,0,.7],.3),_r_move(5),.3,SBr((P,p,t)=>SBn(2*pi/3,3,5,P.r0-tau)(P,p,t),pi/3,.3),420,.3);
+sd[41]=[[3,st1,15,[39,41],[2,1]],[1,st1,0,47,1]]
 //lv43
-pd[48]=[Ssp([1,1,0],.3),[.3],[0],1,2,130,[[2,pi/8,-pi/8,pi/8]],.3];bd[24]=un(bd[19]).mod(7,100);bd[24][0][2]=[100,0];Bd[47]=SBn(0,1,24,0);bd[25]=[[[0,0,...co1],...ml([[-2,1],[-2,-1],[2,0]],.2)],1/4,[0],47,[3],0,100,.2];Bd[48]=SBn(0,1,25,-pi/2);pd[49]=[Ssb([1,0,1],.5),[.5,100],[17,48],0,0,430,[0],.5,1];sd[42]=[[[1,0,1],[48,45],[3,3]],[[1,5,7],[48],[1]],[[2,0,1],[49],[1]]]
+pd[48]=new Pd(Ssp([1,1,0],.3),_r_move(2),.3,SBz((P,p,t)=>SBn(0,1,0,P.r0-2.5*pi)(P,p,t),pi/8,pi/8,.3),130,.3);bd[24]=new Bd(S2(co1),_static,[],{},114514,dt,()=>1,0);bd[25]=new Bd(S0(co1,[[-2,1],[-2,-1],[2,0]].map(i=>mult(i,.2))),_move,_r_e(SBn(0,1,24,0)),{},1,1/0,()=>0,1/4);pd[49]=new Pd(Ssb([1,0,1],.5),_static,[.5,100],[pd[17].at[0],SBn(0,1,25,-pi/2)],430,.5,()=>new pn,{},0,1);
+sd[42]=[[1,st1,0,[48,45],[3,3]],[7,st1,5,48,1],[1,st2,0,49,1]]
 //lv44
-Bd[49]=SBn(pi/8,5,9,4+tau);Bd[50]=SBn(0,1,11,-pi/2);pd[50]=[Ssw([0,1,0],.3),[3],[49],2,5,144,[0],.3];pd[51]=[Ssb([1,.5,0],.4),[.3],[50],1,1,444,[[3,-pi,pi]],.4];sd[43]=[[[1,15,3],[48,50],[1,2]],[[1,0,1],[51],[1]]]
+pd[50]=new Pd(Ssw([0,1,0],.3),_r_move(5,1),3,SBn(pi/8,5,9,4+tau),144,.3);pd[51]=new Pd(Ssb([1,.5,0],.4),_r_move(1),.3,SBnr(11),444,.4);
+sd[43]=[[3,st1,15,[48,50],[1,2]],[1,st1,0,51,1]]
 //lv45
-var SB2=(n)=>[[-pi/2],[n],0,[0,0],[7,.1],[0]],Sp1=(s,c,n,h)=>[Ssp(c,s),[5],[n],1,3,h,[[3,-pi/8,pi/8]],s*0.8]
-Bd[51]=SB2(0);Bd[52]=SB2(6);Bd[53]=SB2(1);Bd[54]=SB2(8);pd[52]=Sp1(.3,[1,0,0],51,90);pd[53]=Sp1(.4,[1,.3,0],52,120);pd[54]=Sp1(.5,[.6,.6,.6],53,180);pd[55]=Sp1(.6,[0],54,480).mod(0,Ssb([0,0,1],.6));sd[44]=[[[52,53],[3,1]],[[53,54],[3,1]],[[52,53,54],[2,2,2]],[list(52,1,4),clone(1,4)]].map((i)=>[[1,0,1],...i])
+{let bb=(n)=>mshot(SBrdm((P,p,t)=>SBn(0,1,n,P.r0-pi/2)(P,p,t),pi/8),7,.1),Sp1=(s,c,n,h,t)=>new Pd(t?Ssb(c,s):Ssp(c,s),_r_move(3),5,n,h,s*0.8);pd[52]=Sp1(.3,[1,0,0],bb(0),90);pd[53]=Sp1(.4,[1,.3,0],bb(6),120);pd[54]=Sp1(.5,[.6,.6,.6],bb(1),180);pd[55]=Sp1(.6,[0,0,1],bb(8),480,1);
+sd[44]=[[[52,53],[3,1]],[[53,54],[3,1]],[[52,53,54],[2,2,2]],[list(52,1,4),clone(1,4)]].map((i)=>[1,st1,0,...i])}
 //lv46
-var Sp2=(s,c,n,h,i)=>[i?Ssb(c,s):Ssp(c,s),[.3],[n],1,3,h,[0],s*0.8]
-pd[56]=Sp2(.3,[1,0,0],0,100);pd[57]=Sp2(.3,[1,1,0],58,120);pd[58]=Sp2(.3,[.5,0,0],0,100).mod(3,3);pd[59]=Sp2(.4,[1,.4,0],50,450);Bd[58]=SBn(0,1,6,-pi/2);sd[45]=[[[1,10,3],[56,57],[2,2]],[[1,0,1],[58,59],[2,1]]]
+{let Sp2=(s,c,n,h,i,i1)=>{let X=new Pd(i?Ssb(c,s):Ssp(c,s),_r_move(3),.3,n,h,s*0.8);if(i1){X.move=_b_move;X.initv=initv(3)};return X}
+pd[56]=Sp2(.3,[1,0,0],pd[0].at,100);pd[57]=Sp2(.3,[1,1,0],SBn(0,1,6,-pi/2),120);pd[58]=Sp2(.3,[.5,0,0],pd[0].at,100,0,1);pd[59]=Sp2(.4,[1,.4,0],SBn(0,1,11,-pi/2),450,1);
+sd[45]=[[3,st1,10,[56,57],[2,2]],[1,st1,0,[58,59],[2,1]]]}
 //lv47
-var Sp3=(x,c)=>[Ssw(c,.3),[2],[[1,11,65,59,60][x]],1,2,10*(x+1),[0],.3,0,x?[x+60,x+60]:0]
-Bd[59]=SBn(0,1,8,4+tau);Bd[60]=SBn(0,1,5,4+tau);itef((i)=>(Bd[i]=[[],[],0,[0,0],[1,0],[1,i-1]]),61,64);Bd[65]=SBn(0,1,9,4+tau);pd[60]=Sp3(0,[1,0,0]);pd[61]=Sp3(1,[1,.3,0]);pd[62]=Sp3(2,[0,1,0]);pd[63]=Sp3(3,[0,0,1]);pd[64]=Sp3(4,[1,1,0]);sd[46]=[[[1,0,1],[64],[3]]]
+{let Sp3=(x,c)=>new Pd(Ssw(c,.3),_r_move(2),2,SBn(0,1,[0,2,9,11,5][x],4),20*(1+x),.3,()=>new pn,{},1,0,x?clone(SBs(x+59),2):[]);pd[60]=Sp3(0,[1,0,0]);pd[61]=Sp3(1,[1,.3,0]);pd[62]=Sp3(2,[0,1,0]);pd[63]=Sp3(3,[1,.4,0]);pd[64]=Sp3(4,[1,1,0]);
+sd[46]=[[1,st1,0,64,3]]}
+//lv48
+{let Sp4=(c,n)=>new Pd(Ssp(c,.4),_r_move(2),5,pd[0].at,150,.4,()=>new pn,{},0,0,clone(SBs(n,1),5));pd[65]=Sp4([0,.5,.5],25);pd[66]=Sp4([1,0,0],30);pd[67]=Sp4([0,1,0],50);
+sd[47]=[[1,st1,0,[65,66,67],[2,1,1]]]}
+//lv49
+pd[68]=new Pd(Ssp([1,.5,0],.3),_r_move(2),4,SBn(pi/8,5,10,4+tau),150,.3);pd[69]=new Pd(Ssp([0,0,.5],.3),_r_move(3),5,mshot(SBn(0,1,8,4+tau),3,.1),150,.3);bd[26]=new Bd(Sbn(3,clone(.7,3)).shape,_move,_r_e(SBn(0,1,1,4+tau)),{},1,1/0,_hit(p_s),3);pd[70]=new Pd(Ssb(clone(.7,3),.5),_r_move(4),2,SBr((P,p,t)=>SBn(7*pi/8,8,26,P.r0-tau)(P,p,t),pi/16,2),460,.4);
+sd[48]=[[3,st1,10,[68,69],[2,1]],[1,st2,0,69,5],[1,st2,0,70,1]]
+//lv50
+pd[71]=new Pd(Ssb([.7,.7,6],.5),_r_move(1),[2,4.9,20],[pd[16].at[0],SBn(pi/8,5,15,4+tau),SBs(30)],700,.4);
+sd[49]=[33,71].map((i)=>[1,st1,0,i,1])
+//lv51
+pd[72]=new Pd(Ssp([1,.2,1],.3),_r_move(2),5,SBn(pi/8,3,27,-pi/2),160,.3);bd[27]=new Bd(Ssc([1,0,1],.2),_move,[_tb_e((P,p,t)=>(SBn(0,1,0,4)(P,p,t),pd[72].at[0](P,p,t)),2,0),_e],{},dt,1/0,_hit(.2),4);bd[27].pierce=1;
+sd[50]=[[1,st1,0,[72,48],[1,3]],[1,st1,0,72,5]]
+//lv52
+{let x=0.2;bd[28]=new Bd(S0([1,.5,0],[[-x,x],[-x,-x],[x*3,0]]),_b_move,[],{},dt,20,_hit(x),.5);bd[28].pierce=1;x/=2;window.sh2=[[-3*x,0],[x,0],[x,x],[x*3,0],[x,-x],[x,0]]
+bd[29]=new Bd(S0([1,.5,0],sh2,1),_move,_r_e(SBn(0.9*pi,10,28,4+tau)),{},3*dt,1/0,_hit(p_s),7);bd[29].pierce=1;pd[73]=new Pd(Ssp([1,.2,0],.3),_r_move(2),2,SBn(0,1,28,-pi/2),120,.3);pd[74]=new Pd(Ssd([1,.5,.5],.3),_r_move(2),3,SBrdm((P,p,t)=>SBn(0.8*pi,5,27,P.r0-tau)(P,p,t),pi),150,.3);pd[75]=new Pd(Ssb([0,.3,1],.5),_r_move(2),3,SBn(pi/8,5,29,4+tau),480,.5);
+sd[51]=[[1,st1,0,[73,74],[4,1]],[3,st1,10,[74,45],[1,1]],[1,st1,0,75,1]]}
+//lv53
+var sh3=[[2,0],[-2,2],[2,0],[-2,-2]].map(i=>mult(i,.1));pd[76]=new Pd(Ssp([1,0,0],.3),_tp_move(2),1,SBn(0,1,28,4+pi),100,.3);bd[30]=new Bd(S0([1,1,0],sh3,1),_move,_em_e(SBn(pi/8,2,0,pi,[0,0],0,1),1),{},1,1/0,_hit(p_s),3);pd[77]=new Pd(Ssb([1,1,0],.4),_r_move(3),3,SBn(pi/8,5,30,4+tau),480,.4);
+sd[52]=[[1,st1,0,[76,72],[4,2]],[1,st1,0,77,1]]
+//lv54
+var sh4=(x,y,z)=>S0([x,y,z],[[.3,.1],[-0.3,.1],[-0.3,-0.1],[.3,-0.1]]),co2=[.6,0,0]
+bd[31]=new Bd(Ssc([0,1,0],.3),_static,[],{},1,2,_hit(.3),0);bd[32]=new Bd(sh4(0,1,0),_b_move,_em_e(SBn(0,1,31,0),.3),{},1,10,()=>0,5);bd[33]=Sbn(3,co2);bd[34]=new Bd(sh4(...co2),_move,_em_e(SBn(0,1,33,4),.5),{},1,1/0,()=>0,5);bd[35]=new Bd(sh4(0,0,1),_move,_em_e(SBn(0,1,8,-pi/2),.5),{},3,1/0,()=>0,5);pd[78]=new Pd(Ssd([0,1,0],.4),_r_move(2),5,SBn(0.75*pi,4,32,4+2.25*pi),250,.4);pd[79]=new Pd(Ssd(co2,.4),_r_move(2),5,SBn(pi/8,5,34,4+tau),250,.4);pd[80]=new Pd(Ssb([0,0,1],.5),_r_move(2),3,SBn(pi/2,2,35,-pi/2),500,.4);
+sd[53]=[[1,st1,0,[78,32],[1,1]],[1,st1,0,[79,48],[1,3]],[1,st1,0,[78,79,80],[1,1,1]]]
+bd[31].atr={poison:2}
+//lv55
+bd[36]=new Bd(Ssc([1,0,1],.2),_move,_em_e(pd[26].at[0],1),{},1,1/0,_hit(.2),3);pd[81]=new Pd(Ssf([1,0,1],.4),_r_move(2),5,SBn(0,1,36,-pi/2),180,.3);
+sd[54]=divide([45,48,50,52,53,54,56,57,58,65,66,67,68,69,72,73,74,76,78,79],5).map((i)=>[1,st1,0,i,i.map(()=>1)]).concat([[1,st1,0,81,10]])
+//lv56
+bd[37]=new Bd(Sbn(3,[1,0,0]).shape,_move,_tb_e(pd[3].at[0],2),{},1,1/0,_hit(p_s),3);pd[82]=new Pd(Ssp([1,0,0],.3),_r_move(2),3,SBn(pi/8,3,37,pi/2),150,.3);pd[83]=new Pd(Ssc([1,1,0],.3),_b_move,1/0,[],20,.3,initv(2),{},0,0,SBn(-7*pi/8,8,0,0));pd[84]=new Pd(Ssw([1,1,0],.3),_r_move(3),5,SBs(83),150,.3);pd[85]=new Pd(Ssd([0,1,.2],.3),_r_move(5),.3,SBr((P,p,t)=>SBn(2*pi/3,3,9,P.r0-tau)(P,p,t),pi/3,.3),500,.3);bd[38]=new Bd(Sbn(1,co1).shape,_b_move,_em_e(SBn(0,1,23,0),.2),{},1,60,()=>0,3);pd[86]=new Pd(Ssp([.3,0,.3],.2),_r_move(3),30,SBn(0,1,38,4),180,.2,()=>new pn,{},0,1);
+sd[55]=[[1,st1,0,[82,84],[3,1]],[1,st1,0,[84,86],[3,1]],[1,st1,0,[74,86],[2,1]],[1,st1,0,[85,84,86],[1,2,2]]]
+//lv57
+bd[39]=new Bd(()=>0,_move,_r_e(pd[78].at[0]),{},1,1/0,()=>0,5);pd[87]=new Pd(Ssb([0,.5,0],.5),_static,[10,10,1],[SBn(0,1,23,0),SBn(3*pi/4,4,39,pi/4),pd[24].at[0]],520,.4,()=>new pn,{},0,1);
+sd[56]=[[3,st0,15,[82,76],[2,2]],[1,st2,0,[87],[1]]]
+//lv58
+bd[40]=new Bd(Ssp(co1,.2),_static,[],{},1,dt,()=>0,0);bd[41]=new Bd(S2(co1),_static,[],{},1,dt,()=>0,0);bd[42]=new Bd(sh1,_move,[_r_e(SBn(.98*pi,50,17,0)),_r_e(SBn(0,1,41,0))],{},1,1/0,()=>0,5);pd[88]=new Pd(()=>0,_b_move,10,(P,p,t)=>(SBnr(40)(P,p,t),SBnr(42)(P,p,t)),120,.2,initv(3));pd[89]=new Pd(Ssb([1,.5,0],.5),_r_move(2),6,SBn(5*pi/6,6,29,4+13*pi/6),520,.4);
+sd[57]=[[1,st1,0,[88,82],[1,3]],[1,st1,0,[88,79],[1,2]],[1,st1,0,[88,89],[3,1]]]
+//lv59
+sd[58]=[[1,st1,0,[86,76],[2,5]],[1,st1,0,[86,88],[1,3]],[5,st1,8,84,3]]
+//lv60
+bd[43]=new Bd(Ssc([0,1,1],.2),_move,_r_e(SBs(25)),{},1,1/0,_hit(p_s),3);pd[90]=new Pd(Ssf([.6,.6,.6],.4),_r_move(2),[5,15,30],[SBr((P,p,t)=>SBn(39*pi/40,40,30,P.r0-tau)(P,p,t),2,5),pd[78].at[0],SBn(pi/8,5,43,pi/2)],720,.4);
+sd[59]=[[1,st1,0,86,1],[1,st1,0,90,1]]
+//lv61
+bd[44]=new Bd(S_arc([0,0,1],pi/6,[-1,0]),_move,_em_e(SBn(0,1,8,pi,[0,0],0,1),2.5),{},1,1/0,()=>0,3);bd[45]=new Bd(Sbn(0,[.5,.5,.5]).shape,_o_move(pi/3),[],{},1,10,_hit(p_s),5);bd[46]=new Bd(Ssd([1,1,0],8**0.5,1,1),_freeze,[],{},1,dt,_hit(2),1e-5);pd[91]=new Pd(Ssp([0,.2,1],.3),_r_move(2,1),4,SBn(pi/8,5,44,-pi/2),150,.3);pd[92]=new Pd(Ssp([.5,.5,.5],.3),_r_move(3),2,SBr((P,p,t)=>SBn(.8*pi,5,45,P.r0-tau)(P,p,t),2,2),160,.3);pd[93]=new Pd(Ssd([1,1,0],.5),_r_move(1),0,SBr((P,p,t)=>SBn(0,1,46,P.r0-tau)(P,p,t),pi/2,dt),200,.4);pd[94]=new Pd(()=>0,_b_move,10,(P,p,t)=>(SBnr(40)(P,p,t),SBn(7*pi/8,8,36,0)(P,p,t)),300,.2,initv(3));
+sd[60]=[[1,st1,0,[91,93],[3,1]],[1,st1,0,[91,92,93],[1,3,3]],[1,st1,0,[91,88],[2,1]],[1,st1,0,[94,93],[1,1]]]
+//lv62
+pd[95]=new Pd(Ssp([1,0,0],.3),_c_move(pi/3),5,pd[2].at,150,.3);pd[96]=new Pd(Ssp([1,1,0],.2),_g_move(40),1,SBn(0,1,4,4),130,.2,initvr(3));
+sd[61]=[[1,st1,0,[88,93],[10,3]],[1,st3,0,[95,93],[10,3]],[1,st1,0,[96,93],[10,3]],[1,st3,0,[88,93,95,96],[5,3,5,5]]]
+//lv63
+{let x=[1,.5,0],y=0.4;pd[97]=new Pd(Ssc([1,1,0],.3,1),_r_move(.5),.2,SBrdm((P,p,t)=>SBn(0,1,4,P.r0+4+tau)(P,p,t),pi/8),250,.3);pd[98]=new Pd(Ssd2(x,y),_r_move(.5),3,SBn(0,1,48,4),250,y);bd[47]=new Bd(Ssc(x,.8),_static,[],{},1,1,_hit(.8),0);bd[48]=new Bd(S0(x,[[0,1],[0,-1],[3,0]].map(i=>mult(i,.6))),_move,_em_e(SBn(0,1,47),.1),{},3,1/0,()=>0,6);bd[49]=new Bd(Ssc([.6,0,0],.3),_tp_move(2,2,0,1),[],{},1.5,30,_hit(.3),2);pd[99]=new Pd(Ssb([.6,0,0],.45),_r_move(2),3,SBr((P,p,t)=>SBn(7*pi/8,8,49,P.r0-tau)(P,p,t),2**0.5,3),550,.36)
+sd[62]=[[1,st1,0,[97,98],[3,1]],[1,st1,0,[97,98],[1,3]],[3,st1,10,[97,98],[1,1]],[1,st1,0,[97,98,32,99],[1,1,1,1]]]}
+//lv64
+bd[50]=new Bd(Sbn(0,[1,0,1]).shape,_move,_r_e(SBn(0.98*pi,20,36,0)),{},1,1/0,_hit(p_s),pi);pd[100]=new Pd(Ssb([1,0,1],.4,1),_r_move(3),5,SBn(0,1,50,4),555,.35)
+sd[63]=[[1,st1,0,[97,98],[2,1]],[1,st1,0,[98,96],[2,10]],[1,st1,0,[95,97,98],[5,1,1]],[1,st1,0,[100,88],[1,1]]]
+//lv65
+{let x=[0,1,.5],v65=3;pd[101]=new Pd(Ssp(x,.3),_r_move(2),3,SBn(pi/8,5,14,-pi/2),120,.3);pd[102]=new Pd(Ssd(x,.3),_r_move(2),1,mshot(SBn(.12*pi,2,14,-pi/2),3,.1),150,.2);pd[103]=new Pd(Ssp(x,.3),_r_move(3),[.3,.3],[SBn(0,1,14,4,[-1,0]),SBn(0,1,14,4,[1,0])],180,.3);bd[51]=new Bd(Ssc([.8,.8,.8],2),_static,[],{},1,1/0,_hit(2),0);bd[51].pierce=1;bd[52]=new Bd(Ssc([.8,.8,.8],.5),_move,_em_e(SBn(0,1,51),1/v65),{},1,1/0,()=>0,v65);pd[104]=new Pd(Ssb([.8,.8,.8],1),_static,1/0,SBn(pi/2,2,52,-pi/2,[0,-9]),1e3,.7,()=>new pn,{},0,1);pd[105]=new Pd(Ssb([1,1,0],.3),_b_move,.2,SBn(0,1,30,-pi/2),500,.2,initv(3))
+sd[64]=[[1,st1,0,[101,102],[5,2]],[1,st1,0,[102,103,86],[3,2,1]],[5,st1,10,[101,102,103],[5,3,1]],[1,st2,0,list(101,1,5),list(1,0,5)]]}
+//lv66
+sd[65]=[[1,st1,0,[101,102,97],[5,5,3]],[1,st1,0,[91,92,93,88],[2,3,3,3]],[3,st1,10,[97,98,95,96],[1,1,5,5]]]
+//lv67
+{let x=[.3,.3,1],r=1;bd[53]=new Bd(Ssc(x,r,1),_b_move,_tb_e(SBn(0,1,54,0),5),{},1,1/0,()=>0,2);bd[54]=new Bd(S_hole(x,r),_static,[],{},3,0.1,_i_hit(r),0);;pd[106]=new Pd(Ssp([.6,.6,.1],.3),_r_move(2),3,SBn(0,1,29,4),250,.2);pd[107]=new Pd(Ssb(x,.2),_r_move(5),6,SBnr(53),666,.1)
+sd[66]=[[1,st1,0,[93,106],[3,5]],[1,st1,0,[106,97,96],[3,3,10]],[3,st1,10,[106,98],[1,1]],[1,st1,0,[106,107,74],[3,1,3]]]}
+//lv68
+{let x=[.2,1,.8],y=[1,.5,.2];bd[55]=new Bd(Sbn(1,x).shape,_a_move(1.5),_e,{},1,1/0,_hit(p_s),1);bd[56]=new Bd(S1(x,.3,0,.5),_b_move,_em_e(SBnr(55),.2),{},2,10,()=>0,3);pd[108]=new Pd(Ssp(x,.3),_r_move(3),3,SBn(0,1,56,4),250,.2);bd[57]=new Bd(Ssc(y,.3),_c_move(pi/4),[],{},1,30,_hit(.3),0);pd[109]=new Pd(Ssb(y,.3),_r_move(5,1),.3,SBn(0,1,57),680,.2,initv(5))
+sd[67]=[[3,st1,10,[106,108],[2,1]],[1,st1,0,[101,106,108],[10,1,3]],[1,st1,0,[108,109],[3,1]]]}
+//lv69
+var co3=[.8,.8,1],sh_star=list(-pi/2,.8*pi,5).map(i=>mult([cos(i),sin(i)],.4));{let x=co3,STAR=sh_star,f=(x1,x2,x3,x4=2,x5=1)=>new Bd(x1(x,x2?0.5:1),_freeze,x2?_tb_e(SBn(0,1,x2,0,[0,0],0,1),x4):[],{},x5,x2?1/0:0.1,x3,1);bd[58]=f(Ssl,59,()=>0);bd[59]=f(Ssl,0,_l_hit(0.01));bd[59].atr={holy:2};bd[61]=f(Ssl2,62,()=>0);bd[62]=f(Ssl2,0,_l2_hit(0.01));bd[62].atr={holy:2};bd[71]=f(Ssl2,72,()=>0,1);bd[72]=f(Ssl2,0,_l2_hit(0.01),1,2);bd[72].atr={ice:2};bd[84]=f(Sslc,85,()=>0);bd[85]=f(Sslc,0,_lc_hit(0.01));bd[85].atr={holy:2}
+pd[110]=new Pd(Ssp(x,.3),_r_move(2),3,SBn(0,1,58,-pi/2),180,.2);pd[111]=new Pd(S0([0,1,1],STAR),_r_move(2),[.1,1],[SBr((P,p,t)=>SBn(.8*pi,5,58,P.r0-tau)(P,p,t),pi/5,.1),SBnr(34)],690,.3)
+sd[68]=[[5,st1,10,[108,110],[1,4]],[1,st1,0,[106,108,110],[1,3,10]],[1,st1,0,[110,111],[2,1]]]}
+//lv70
+pd[112]=new Pd(Ssd([.6,.6,1],.4),_r_move(3),[.3,10],[(P,p,t)=>mshot(SBnrp(61,new pn(0,-1)),11*(1-t.hp/(t.d.hp)),.1)(P,p,t),(P,p,t)=>SBs(~~(112*rdm()))(P,p,t)],1e3,.3)
+sd[69]=[[3,st1,3,0,1],[1,st1,0,112,1]]
+//lv71
+bd[60]=new Bd(Sbn(0,co3).shape,_move,_em_e(SBnr(61),.2),{},1,1/0,()=>0,5);pd[113]=new Pd(Ssw(co3,.4,1),_r_move(3),1,SBn(0,1,60,4),699,.3)
+sd[70]=[[1,st1,0,[108,110,106],[2,5,2]],[1,st0,0,[113,84],[1,10]]]
+//lv72
+sd[71]=[[1,st1,0,[86,88,110],[5,5,5]],[1,st1,0,[96,108,74],[10,3,3]],[20,st1,1,110,1]]
+//lv73
+bd[63]=new Bd(bd[0].shape,_tp_move(3,1/0,pi/3),[],{},1,20,_hit(p_s),3);pd[114]=new Pd(Ssc([.5,.5,.5,.5],5),_b_move,1/0,[],1e3,5,initv(1));pd[115]=new Pd(Ssp([1,0,0],.2),_re_move(6,0.9),1,SBnr(63),190,.15);pd[114].resist=1
+sd[72]=[[1,st1,0,[114,110,108],[1,5,3]],[1,st1,0,[114,115,92],[3,10,3]]]
+//lv74
+var sh5=(x,y,z)=>S0([x,y,z],[[.2,0],[-.2,.1],[-.2,-.1]]),co4=[.4,.2,.1]
+bd[64]=new Bd(sh5(0,0,1),_b_move,_r_e(SBn(pi/8,5,7,4+tau),0),{},1,20,()=>0,3);pd[116]=new Pd(Ssp([.3,.2,1],.3),_r_move(3),5,SBn(0,1,64,4),200,.2);pd[117]=new Pd(Ssd(co3,.3),_r_move(4),1,SBrdm((P,p,t)=>SBn(-7*pi/8,8,58,P.r0-tau)(P,p,t),pi),250,.3);bd[65]=new Bd(Ssc(co4,.8),_move,_e,{},2,1/0,_hit(.8),6);pd[118]=new Pd(Ssb(co4,.4),_r_move(3,1),.2,SBrdm((P,p,t)=>SBn(0,1,65,P.r0+4+tau)(P,p,t),pi/8),700,.3)
+sd[73]=[[1,st1,0,[115,116],[5,3]],[5,st1,10,[108,116,117],[1,1,1]],[1,st1,0,[114,116,117,118],[2,2,2,1]]]
+//lv75
+bd[66]=new Bd(Sbn(0,[.1,1,.5]).shape,_a_move(.5,1),[],{},1,10,_hit(p_s),5);bd[67]=new Bd(bd[66].shape,_move,_r_e(SBst(66,10)),{},1,1/0,_hit(p_s),4);pd[119]=new Pd(Ssp([.1,1,.3],.3),_r_move(3),3,SBn(0,1,67,4),200,.2);bd[68]=new Bd(S1([.8,.8,.8],2,0,.5),_static,[],{},1,2,()=>0,0);bd[68].shield=1;bd[68].hb=2;bd[69]=new Bd(Ssc([.2,.6,.2],1),_static,[],{},3*dt,20,_hit(1),0);bd[69].pierce=1;bd[70]=new Bd(Sbn(0,[0,1,0]).shape,_b_move,_tb_e(SBn(0,1,69,0),10,0),{},1,1/0,_hit(p_s),3);pd[120]=new Pd(Ssb([0,1,0],.4),_r_move(4,1),[3,3],[SBn(0,1,68,0),SBrdm((P,p,t)=>SBn(-7*pi/8,8,70,P.r0-tau)(P,p,t),pi)],720,.3)
+sd[74]=[[3,st1,8,[116,119],[2,3]],[1,st1,0,[116,117,119],[5,2,5]],[1,st1,0,[114,119,120],[2,3,1]]]
+//lv76,see lv69 for definitions of bd[71,72]
+pd[121]=new Pd(Ssp([.7,.7,.7],.35),_r_move(2),.1,(P,p,t)=>p.dist(pla)<5&&(SBnr(1)(P,p,t)),333,.25);bd[71].shape=Ssl2([0,0,1],.5);bd[72].shape=Ssl2([0,0,1],1);bd[72].ls=1;bd[73]=new Bd(S_cross([0,0,1],.15),_move,_r_e(SBn(pi/4,2,71,0)),{},1,1/0,_hit(.15),4);pd[122]=new Pd(Ssb([0,0,1],.4),_r_move(2,1),3,SBn(pi/8,5,73,4+tau),720,.3)
+sd[75]=[[1,st1,0,[115,116,121],[5,3,1]],[1,st1,0,[116,117,119,121],[3,3,5,3]],[1,st1,0,[121,122],[5,1]]]
+//lv77
+pd[123]=new Pd(Ssw(co4,.35),_r_move(3),1,mshot(SBnrp(65,new pn(0,-1)),10,.1),730,.28)
+sd[76]=[[3,st1,5,[116,119,121],[1,1,1]],[1,st1,0,[114,121,115],[5,3,5]],[1,st1,0,[121,119,123],[3,3,1]]]
+//lv78
+bd[74]=new Bd(S0([.1,1,.5],[[.6,0],[0,.2],[-.2,0],[0,-.2]]),_move,_r_e(SBspl(66,30)),{},1,1/0,_hit(.2),3.5);pd[124]=new Pd(Ssw([.1,1,.5],.3),_r_move(3),5,SBn(0,1,74,4),300,.25);pd[125]=new Pd(S0([1,1,0],sh_star),_g_move(30),5,SBrdm(SBshape(4,50,polyshape(5,2),2*tau),pi),400,.3,initv(2))
+sd[77]=[[1,st1,0,[119,121,124],[5,3,3]],[5,st1,5,[121,124],[1,1]],[1,st1,0,[124,125],[5,3]]]
+//lv79
+bd[75]=new Bd(Sbn(0,[1,0,0]).shape,_bf_move,[],{},1,10,_hit(p_s),3);pd[126]=new Pd(pd[24].shape,pd[24].move,1,SBr((P,p,t)=>SBn(-7*pi/8,8,75,P.r0-tau)(P,p,t),pi/8,1),250,.3);pd[127]=new Pd(pd[76].shape,_tp_move(2),.1,SBn(0,1,47,0),200,.2)
+sd[78]=[[1,st1,0,[124,126],[2,3]],[3,st1,10,[126,127],[2,5]],[1,st1,0,[124,125,126,127],[3,3,3,10]]]
+//lv80
+{let r=9.9,p0s=[[r,r],[-r,r],[-r,-r],[r,-r]].map(i=>new pn(...i)),agi=20,b=(P,p,T)=>bd[78].spawn({p:p0s,v:p0s.map(i=>new pn(1,0,1))})
+bd[76]=new Bd(S0([.6,0,0],[[-.2,.2],[-.2,-.2],[.6,0]]),_b_move,[],{},2*dt,20,_hit(.2),1);bd[76].pierce=1;bd[77]=new Bd(S0([.6,0,0],sh2,1),_move,_r_e(SBn(0.9*pi,10,76,4+tau)),{},3*dt,1/0,_hit(p_s),7);bd[77].pierce=1;bd[78]=new Bd(S1([1,.5,0],.5,0,.5),_static,_tb_e(SBn(0,1,48,4),2),{},1,1/0,()=>0,0);bd[79]=new Bd(S2([.8,.8,.8]),_static,[],{},0,dt,()=>1,0);bd[79].atr={stun:3};pd[128]=new Pd(Ssb([.6,0,0],.4),_r_move(2),[agi,agi],[SBn(pi/8,5,77,4+tau),SBn(.9*pi,10,49,4+tau)],500,.3);pd[129]=new Pd(Ssb([1,.5,0],.4),pd[128].move,[agi,agi],[SBn(pi/8,5,11,4+tau),b],500,.3);pd[130]=new Pd(Ssb([1,1,0],.4),pd[128].move,[.5,agi],[pd[97].at[0],SBshape(13,50,polyshape(4,1),tau)],500,.3);pd[131]=new Pd(Ssb([0,1,0],.4),pd[128].move,[agi,agi],[pd[78].at[0],SBn(pi/6,5,74,4+tau)],500,.3);pd[132]=new Pd(Ssb([0,1,.8],.4),pd[128].move,[agi,agi*3],[mshot(SBn(0,1,60,4),3,.3),SBn(pi/8,5,43,4+pi)],500,.3);pd[133]=new Pd(Ssb([0,0,1],.4),pd[128].move,[agi,agi],[SBn(5*pi/6,6,73,4+tau),SBn(5*pi/6,6,64,4+tau)],500,.3);pd[134]=new Pd(Ssb(co1,.4),pd[128].move,[agi*3,agi*2.22],[SBn(2*pi/3,3,38,4+tau),mshot(SBnr(42),5,.2)],500,.3,initv(0),{},0,1);pd[135]=new Pd(Ssb([.8,.8,.8],.4),pd[128].move,[1,agi],[SBnrp(68,new pn(0,0),'fxck you'),SBn(0,1,79,0)],500,.3)}
+sd[79]=[[1,st1,0,128,1],[1,st1,0,129,1],[1,st1,0,130,1],[1,st1,0,131,1],[1,st1,0,132,1],[1,st1,0,133,1],[1,st1,0,134,1],[1,st1,0,list(128,1,8),list(1,0,8)]]
+//lv81
+pd[136]=new Pd(bd[3].shape,_r_move(2,1),.2,SBnr(3),220,.1);bd[80]=new Bd(Ssc([1,1,.3],.3),_ob_move(pi/3,2,2,1),_em_e(SBn(0,1,0,4),1,0),{},dt,10,_hit(.3),0.01);bd[80].pierce=1;pd[137]=new Pd(Ssp([.8,.8,.1],.3),_r_move(2),10,SBsat(80,3,2),240,.2);bd[81]=new Bd(bd[80].shape,_ob_move(pi/3,1,15,20),bd[80].event,{},10*dt,60,bd[80].hit,0.01);bd[81].pierce=1;pd[138]=new Pd(Ssb([.6,.6,0],.4),_r_move(2),[3.7,10],[SBsat(81,3,1),SBs(136,1)],750,.3)
+sd[80]=[[3,st1,10,[126,127,125],[1,3,2]],[1,st1,0,[136,124],[3,5]],[1,st1,0,[128,136,137],[1,3,5]],[1,st1,0,[136,137,138],[2,8,1]]]
+//lv82
+bd[82]=new Bd(sh5(.9,.1,.2),_b_move,_tb_e(SBn(0,1,83,4),3,0,2),{},1,1/0,_hit(p_s),4);bd[83]=new Bd(sh5(.5,1,0),_move,_e,{},1,1/0,_hit(p_s),3);pd[139]=new Pd(Ssd([0,0,.6],.3),pd[23].move,.6,SBr((P,p,t)=>SBn(2*pi/3,3,82,P.r0-tau)(P,p,t),pi/4,.3),250,.2);pd[140]=new Pd(Ssd([0,.6,0],.3),pd[24].move,2,SBr((P,p,t)=>SBn(-7*pi/8,8,82,P.r0-tau)(P,p,t),pi/16,1),250,.2);pd[141]=new Pd(Ssc([.8,.8,0],.3,1),pd[97].move,.2,SBrdm((P,p,t)=>SBn(0,1,82,P.r0+4+tau)(P,p,t),pi/8),280,.3)
+sd[81]=[[4,st1,10,[139,136],[2,1]],[4,st1,10,[140,137],[2,1]],[1,st1,0,[139,140,141,125],[2,2,3,1]]]
+//lv83,see lv69 for definitions of bd[84,85]
+{let x=0.1;pd[142]=new Pd(Ssp([.7,.7,.9],.3),_r_move(4,1),1,SBn(0,1,84,0),250,.2);bd[86]=new Bd(bd[23].shape,_a_move(x,1),bd[23].event,{},1,1/0,()=>0,Math.log(1/x));pd[143]=new Pd(Ssp([.8,.2,.8],.35),_r_move(2),2,SBmine(86,10,4),300,.25);pd[144]=new Pd(Ssb([1,.5,.1],.4),_r_move(2),.2,SBnrp(78,new pn(1,0),'fxck you'),777,.3)}
+sd[82]=[[1,st1,0,[119,124,142],[3,3,1]],[1,st1,0,[142,143],[5,2]],[1,st1,0,[137,136,121,143],[5,5,4,3]],[1,st1,0,[142,143,144],[5,4,1]]]
+//lv84
+bd[87]=new Bd(Ssl2([1,.5,0]),_freeze,[],{},2*dt,3,_l2_hit(.01),1);bd[87].pierce=1;bd[88]=new Bd(Sbn(0,[1,.5,0]).shape,_move,_r_e(SBn(0,1,87,pi/2)),{},1,1/0,_hit(p_s),3);bd[89]=new Bd(Ssd2([1,.5,0],.25,0,0),_move,_r_e(SBnr(87)),{},1,1/0,_hit(.25),4);bd[90]=new Bd(sh5(1,.5,0),_move,_em_e(SBn(0,1,87,0),.2),{},1,1/0,()=>0,2);pd[145]=new Pd(Ssp([1,.5,0],.3),_r_move(3),1,SBn(0,1,88,-pi/2),240,.2);pd[146]=new Pd(Ssw([1,.5,0],.3),_r_move(3),3,SBn(pi/6,5,89,4+tau),270,.2);pd[147]=new Pd(Ssf([1,.5,0],.4),_r_move(2),2.5,SBn(0,1,90,-pi/2),780,.3)
+sd[83]=[[4,st1,5,145,2],[3,st1,10,[145,146],[2,1]],[1,st1,0,[145,146,147],[5,3,1]]]
+//lv85
+var co5=[.6,.2,1];bd[91]=new Bd(S_cross(co5,.2,1),_a_move(.3,1),[],{},.2,3,_hit(.2),1);bd[91].atr={poison:1};bd[92]=new Bd(Ssc(co5,.3),_gd_move(5),_em_e(SBnr(91),.2),{},1,10,()=>0,5);pd[148]=new Pd(Ssp(co5,.3),_r_move(3),3,(P,p,T)=>bd[92].spawn({p:p,v:new pn(0,-1)},0.001),280,.2);pd[149]=new Pd(Ssb(co5,.3),_r_move(3),3,SBmine(92,5,5,1/bd[92].speed),790,.24);
+sd[84]=[[1,st1,0,[139,142,148],[1,3,2]],[1,st1,0,[142,143,146,148],[2,2,2,2]],[1,st1,0,[136,148,149],[5,3,1]]]
+//lv86
+pd[150]=new Pd(Ssp(co5,.35),_r_move(3),5,SBn(pi/3,5,92,pi/2),300,.25);bd[93]=new Bd(S_cross([1,1,.2],.3),_gd_move(-5),[],{},.2,10,_hit(.3),3);bd[94]=new Bd(Ssc([1,1,.2],.2),_gd_move(-5),_r_e(SBspl(93,5)),{},1,1/0,_hit(.2),1);pd[151]=new Pd(Ssb([1,1,.2],.4),_r_move(3),1,mshot(SBcat(94,1,1,-5,1),5,.2),800,.3)
+sd[85]=[[1,st1,0,[146,148,150],[3,3,1]],[1,st1,0,[143,150,131],[3,3,3]],[1,st1,0,[148,150],[5,3]],[1,st1,0,[150,151],[3,1]]]
+//lv87
+{let x=(t,n=20)=>SBn((1-1/n)*pi,n,t,4+tau);pd[152]=new Pd(Ssp([1,1,.2],.3),_r_move(3),6,mshot((P,p,T)=>bd[94].spawn({p:p,v:new pn(0,-1)},0.001),3,.15),300,.2);bd[95]=new Bd(sh5(...co1),_b_move,_r_e(SBmine(86,1,2),0),{},1,20,()=>0,3);pd[153]=new Pd(Ssb([.9,.1,.2],.4),_r_move(2),5,x(82,100),500,.3,initv(0),{},0,1);pd[154]=new Pd(Ssb([0,0,1],.4),_r_move(2),bd[64].ls,x(64),pd[153].hp,.3,initv(0),{},0,1);pd[155]=new Pd(Ssb([.8,.2,.8],.4),_r_move(2),bd[95].ls,x(95),pd[153].hp,.3,initv(0),{},0,1)}
+sd[86]=[[3,st1,10,[152,150],[3,1]],[1,st1,0,[152,146],[5,5]],[1,st2,0,[153,154,155],[1,1,1]]]
+//lv88
+bd[96]=new Bd(S0([.6,.6,.2],[[-.2,.1],[.2,0],[-.2,-.1]],1),_freeze,_em_e((x,y,t)=>(t.p.set(t.p.tr(t.oldp,-0.5))),0.2),{},1,1/0,_hit(p_s),1);bd[97]=new Bd(bd[65].shape,_freeze,_em_e((x,y,t)=>(t.p.set(t.p.tr(t.oldp,-1.6))),0.5),{},1,1/0,_hit(.8),1);bd[98]=new Bd(S0(co3,[[-.1,0],[0,.1],[.3,0],[0,-.1]]),_move,_r_e(SBn(0,1,61,4)),{},1,1/0,()=>0,4);pd[156]=new Pd(Ssp([.4,.4,.2],.3),_r_move(3),2,SBn(pi/6,3,96,4+tau),250,.3);pd[157]=new Pd(Ssp(co4,.35),_r_move(2),3,SBr((P,p,t)=>SBn(0.8*pi,5,97,P.r0-tau)(P,p,t),1),350,.35);pd[158]=new Pd(Ssb(co3,.4),_b_move,2,SBn(0.9*pi,10,98,4+tau),840,.4,initv(2))
+sd[87]=[[3,st1,10,[152,156],[1,3]],[1,st1,0,[150,156,157],[1,10,3]],[3,st2,10,[156,157],[5,2]],[1,st1,0,[156,157,158,125],[5,2,1,1]]]
+//lv89
+var sh6=(x,y)=>[[x,y],[x,-y],[-x,-y],[-x,y]];{let s=sh6(1,0.2),c=[.6,.1,.1],a=0.5
+bd[99]=new Bd(S1([1,.6,.2],.8,0,.7),_a_move(.3,1),_e,{},dt,5,_hit(.8),1);bd[99].pierce=1;bd[100]=new Bd(S0([1,.6,.2],sh3,1),_gd_move(5),_r_e(SBn(2*pi/3,3,99,4+tau)),{},1,1/0,_hit(p_s),1);bd[101]=new Bd(S0(c,s,0,0,.5),_a_move(a,1),_e,{},2*dt,4,_p_hit(s),1.5*Math.log(1/a));bd[101].pierce=1;pd[159]=new Pd(Ssp([1,.6,.2],.3),_r_move(3),3,SBcat(100,1,0,5,2),250,.3);pd[160]=new Pd(Ssd(c,.4),_r_move(2.5),4,SBst_tp(101,10),400,.36)}
+sd[88]=[[1,st1,0,[156,159,152],[3,3,3]],[5,st1,5,[159,157],[1,1]],[1,st1,0,[159,160],[3,1]],[1,st1,0,[137,142,159,160],[3,3,5,3]]]
+//lv90
+var co6=[.2,.2,.2];{let s=sh6(2,0.4)
+bd[102]=new Bd(S1(co6,1,0,.6),_a_move(.3,1),_tb_e(SBnr(103),3),{},1,1/0,()=>0,4);bd[103]=new Bd(S1(co6,5,0,.8),_static,[],{},5,0.1,_hit(5),1);bd[104]=new Bd(sh5(...co6),_g_move(-30),[],{},0.5,10,_hit(p_s),3);bd[104].atr={disease:3};bd[106]=new Bd(S0(co6,s,0,0,.5),_move,_e,{},dt,1/0,_p_hit(s),20);bd[106].atr={decay:3};bd[106].pierce=1;pd[161]=new Pd(Ssb(co6,.5),_re_move(10,.9),[5,5,3],[mshot(SBn(0.4,7,106,4+tau),3,.3),SBcp(3,0,102),SBn(0.9*pi,10,104,4+tau)],666,.45);pd[161].resist=1}
+sd[89]=[[1,st2,0,161,1]]
+//lv91
+bd[105]=new Bd(sh5(1,1,0),_gd_move(-5),_r_e(SBst(93,10,1,2)),{},1,1/0,_hit(p_s),1);bd[107]=new Bd(S1([.8,0,0],.5),_a_move(2,0),_r_e(SBspl(101,50,pi,0,20)),{},1,1/0,_hit(.5),2);pd[162]=new Pd(Ssp([1,1,0],.3),_r_move(3),5,SBcat(105,1,0,-5,2),260,.3);pd[163]=new Pd(Ssw([.8,0,0],.4),_r_move(2),2,SBn(0,1,107,4),850,.3)
+sd[90]=[[1,st1,0,[157,159,162],[2,3,3]],[1,st1,0,[160,162],[2,5]],[3,st1,5,[162,150],[2,1]],[1,st1,0,[160,162,163],[4,2,1]]]
+//lv92
+{let s=sh6(.8,.15),a=0.5,v=1.5*Math.log(1/a);
+bd[108]=new Bd(S0([.2,.2,1],s,0,0,0.8),_move,_e,{},dt,1/0,_p_hit(s),10);bd[108].pierce=1;bd[108].atr={ice:2};bd[109]=new Bd(S0([1,1,0],sh6(1,.2),0,0,.5),_a_move(a,1),_em_e(function(P,p,t){t.oldp.set(t.p.tr(pla,-dt*v*pla.dist(t.p)))},3),{},dt,12,_p_hit(sh6(1,.2)),v);bd[109].pierce=1;pd[164]=new Pd(Ssp([.2,.2,1],.3),_r_move(3),3,SBn(pi/8,3,108,4+tau),270,.3);pd[165]=new Pd(Ssp([1,1,0],.4),_r_move(4),5,mshot(SBst_tp(109,1),3,.3),350,.35);pd[166]=new Pd(Ssb([.6,.6,.6],.3),_r_move(3),2,function(P,p,t){let x=floor(rdm()*3),n=[101,108,109][x];SBn(0.95*pi,20,n,4+tau,[0,0],0,0,x==1?1:10)(P,p,t)},888,.3)}
+sd[91]=[[1,st1,0,[160,162,164],[2,4,3]],[3,st1,5,[164,157],[2,1]],[3,st1,10,[164,165],[3,2]],[1,st1,0,[164,165,166],[3,1,1]]]
+//lv93
+bd[110]=new Bd(Sbn(1,[1,0,0]).shape,_move,_tb_e(SBn(pi/8,5,0,0,[0,0],0,1),2),{},1,1/0,_hit(p_s),3);[0,1,2].forEach(i=>(bd[111+i]=new Bd(S1([.2,.5,.3],0.1*(4-i)),_b_move,_tb_e(SBn(pi/8,3,112+i,0,[0,0],0,1),2),{},1,1/0,_hit(0.1*(4-i)),4)));bd[114]=new Bd(S1([.2,.5,.3],.1),_move,_e,{},1,1/0,_hit(.1),4);pd[167]=new Pd(Ssp([1,.2,.2],.3,1),_r_move(3),3,SBn(pi/7,5,110,4+tau),270,.3);pd[168]=new Pd(Ssd([1,.5,.5],.4,1),_r_move(3.5),4,SBn(0.9*pi,10,37,0),400,.35);pd[169]=new Pd(Ssb([.4,1,.5],.5,1),_r_move(2.5),3,SBn(pi/6,3,111,4+tau),900,.4)
+sd[92]=[[1,st1,0,[164,165,167],[5,2,3]],[1,st1,0,[162,167,168],[5,4,2]],[3,st1,5,[167,168],[2,1]],[1,st1,0,[167,168,169],[3,2,1]]]
 
 
-//MOVEMENTS.
-var ad=(c,v)=>add(c,mult(v,dt))
-var nb=(x,s)=>abs(x[1])>abs(x[0])?[x[0],(m-s)*sgn(x[1])]:[(m-s)*sgn(x[0]),x[1]]
-function ab(c,v,s){let n=subt(c,nb(c,0)),h=!iv(c,s),v1=h?ref(v,n):v,p1=ad(h?nb(c,s):c,v1);
-return {p:p1,v:v1,h:h}}
-var as=(c,v)=>({p:Cl(ad(c,v)),v:v})
-var rn=(x,y,t)=>t?add(x,mult(rdm(t),y-x)):x+rdm()*(y-x)
-var tp=(p)=>atan2(pla[1]-p[1],pla[0]-p[0])
 
+//what the heck
+sd.forEach(i=>i.forEach(j=>(j[3]=toArray(j[3]),j[4]=toArray(j[4]))))
+setcolor([0,0,0]);ctx.fillRect(0,0,ca.w,ca.h)
 
+//New Game +
+function NGplus(a){game.pla[0].d.hp=3*a;game.hpMult=game.dmgMult=a**0.5;game.enemyMult=1+Math.floor(a/2);game.pla[0].d.agiMult=1+a*0.4;initStage(0)}
 
-//LAUNCHES.
-function lb(p,n,D){bs.push(Ib(p,bd[n],n,polar(bd[n][1],D)))}
-function lp(p,n,v,s){ps.push(Ip(p,pd[n],n,v,s))}
-function spawn(t,k,n){for(let i=0;i<t;i++){let v=polar(pd[n][4],rn(0,tau)),p=k==2?[0,0]:[rn(1-m,m-1),rn(k?0:1-m,m-1)];lp(p,n,v,1)}}
-function lB(p,d,D){let x=add(p,d[3]),y=d[6]?p:x;for(let i=0;i<Le(d[1]);i++){lb(x,d[1][i],d[0][i]+(D||0)+(d[0][i]>=4?tp(y)-4:0));};
-if(d[5][0]==1){let n=d[5][1],vel=pd[n][4],v=polar(vel,rn(0,tau));lp(p,n,v,0)}
+//UI
+function drawUI(){let p=stoc({x:0,y:0}).add(new pn(.5,-.5)),step=new pn(0,.5);fillText('level '+(lv+1),p,[1,1,1]);
+let fxxk=game.pla[0];fillText(test_mode?('total dmg taken='+game.pla_dmg_total.toFixed(1)):('hp '+max(0,fxxk.hp).toFixed(1)+'/'+fxxk.d.hp.toFixed(1)),p.subt(step),[1,1,1])
+fillText('There are '+game.b.length+' bullets on the screen. idk why it\'s shown here.',p.subt(step.mult(2)),[1,1,1])
+let s1=2;for(let i in atr_color){s1++;let s=fxxk.atr[i]?.str,d=fxxk.atr[i]?.dur;if(d){fillText(atr_msg[i].replace('$1',s.toFixed(1)).replace('$2',d.toFixed(1)),p.subt(step.mult(s1)),atr_color[i])}}
 }
 
-function lB1(s){let x=pd[s[2]][9];if(!x){return 0}List(x).forEach((i)=>lB(s[0],Bd[x[i]],s[7][i]))}
 
-//MoVeMeNtS.
-var Mr=.1
-function mb(s,d){let s1=un(s),d1=un(d);let p=s1[0],v=s1[1],i=d1[2],out={p:p,v:v,h:!1};switch(i[0]){
-case 0:out=ab(p,v,p_s);break
-case 1:out=ab(p,v,p_s);if(out.h){out.v=mult(out.v,i[1])};break
-case 2:out=ab(p,v,p_s);if(out.h){let vec=subt(pla,out.p);out.v=mult(vec,(out.h?i[1]:1)*M(out.v)/M(vec))};break
+//debug
+var divvy=document.createElement('div');document.body.appendChild(divvy);
+var shady=3 //0=none 1=motion-blur 3=shady 5=shadier 10=very beautiful 1/0=HELL MODE
+function MAIN(){setcolor(shady?[0,0,0,1/(1+shady)]:[0,0,0]);ctx.fillRect(0,0,ca.w,ca.h);drawBorder();Ub();Uf();Up();Url();Ufp();Us();Uto();Ua();game.pla[0].U(0);Upla()
+if(game.darkness){setcolor([0,0,0]);drawHole(pla,game.darkRange)}
+drawUI()
+//divvy.innerHTML='level '+(lv+1)
 }
-return out}
-function mp(s,d){let s1=s,d1=d;let p=s1[0],v=s1[1],i=d1[3],vel=d1[4],r;switch(i){
-case 0:return {p:p,v:[0,0]}
-case 1:r=rdm()<Mr?polar(rn(0,vel),rn(0,tau)):[0,0];return ab(p,ad(v,r),p_s)
-case 2:r=rdm()<Mr?polar(vel,rn(0,tau)):[0,0];return ab(p,ad(v,r),p_s)
-case 3:return ab(p,v,p_s)
-case 4:let vec=subt(pla,p),v1=mult(vec,vel/M(vec));return as(p,v1)}}
-
-var cpl=false,pD=3,pV=5,pA=.15,pR=pi/16,pN=5,ple=pA
-//Detecti0ns.
-var Pb=[],g=false,plh=.2
-
-var TEST_MODE=false
-//pD=10
-
-function detP(){for(let i=0;i<Le(bs);i++){let z=plh+bd[bs[i][2]][7];if(z>0&&Di2(pla,bs[i][0])<z*z&&!TEST_MODE){g=true;break}}}
-function detE(){let L=Le(Pb),L1=Le(ps);for(let i=0;i<L1;i++){
-let z=pd[ps[i][2]][7],n=0;
-for(let j=0;j<L;j++){
-if(Di2(Pb[j][0],ps[i][0])<z*z){n++;Pb.remove(j);j--;L--}
-}
-ps[i][4]-=n*pD;if(ps[i][4]<1){if(ps[i][9]){ss[3]++}lB1(ps[i]);ps.remove(i);i--;L1--;}
-}
-}
-function Ep(t){let s=un(ps[t]),d=un(pd[s[2]]),moved=mp(s,d);s[0]=moved.p;s[1]=moved.v;List(s[3]).forEach((i)=>{
-s[6][i]-=dt;s[3][i]-=dt;let x1=d[6][i],BOOL=false
-let x=un([Bd[d[2][i]][2]?pla:s[0],Bd[d[2][i]],s[7][i]]);let xx=x[1][4]
-if(s[6][i]<=0&&s[5][i]>1){s[6][i]=xx[1];s[5][i]--;lB(...x);BOOL=true}
-
-if(s[3][i]<=0){s[3][i]=d[1][i];s[6][i]=xx[1];s[5][i]=xx[0];lB(...x);BOOL=true}
-
-if(d[6][0]){
-switch(d[6][i]?.[0]){
-case 0:break
-case 1:s[7][i]=(s[7][i]+dt*d[6][i][1])%tau;break
-case 2:s[7][i]<d[6][i][2]?(s[8][i]=1):s[7][i]>d[6][i][3]?(s[8][i]=-1):0;s[7][i]+=s[8][i]*dt*d[6][i][1];break
-case 3:if(BOOL) s[7][i]=rn(x1[1],x1[2])
-}
-}
-})
-
-ps[t]=s}
-function Eb(t){let s=un(bs[t]),d=bd[s[2]],moved=mb(s,d);s[0]=moved.p;let vec=subt(pla,s[0]),x1=false,y=[s[0],Bd[d[3]],d[4][2]?atan2(s[1][1],s[1][0]):0];
-s[1]=M(vec)<d[5]?mult(vec,M(s[1])/M(vec)):moved.v
-if(s[3]<0){let x=un(d)[4][0];if(x==1||x==2){lB(...y)}x1=x==2;s[3]=d[4][1]||1}
-if(moved.h){let x=un(d)[4][0];if(x==3||x==4||(d[2][0]==0&&x==2)){lB(...y)}x1=x!=4&&d[2][0]==0}
-s[3]-=dt;s[4]-=dt
-return {s:s,b:x1||s[4]<0}
-}
-function Es(t){let d=sd[t],x=d[ss[0]],k=x[0][0];ss[1]-=dt;let b00l=stage==46
-if(ss[1]<=0&&ss[2]>0){ss[2]--;ss[1]=x[0][1];for(let i=0;i<Le(x[1]);i++){cpl||spawn(x[2][i],k,x[1][i])}
-}if((ss[3]>=x[0][2]*total(x[2])&&!b00l)||(!Le(ps)&&b00l)){ss=[ss[0]+1,0,d[min(ss[0]+1,Le(d)-1)][0][2],0];
-if(ss[0]>=Le(sd[stage])){ss[0]--;cpl=true}
-
+//what the fffffuuuuuuuuccccccccccckkkkkkk
+function haveSomeFun(funType=0){switch(funType){
+case 0:let f=(P,p,T)=>SBn(0,1,~~(rdm()*bd.length),4)(P,p,T);for(let i=0;i<pd.length;i++){pd[i].at=pd[i].at.map(xxx=>f);pd[i].agi=pd[i].agi.map(xxx=>3)};break //randomized attacks!
+case 1:for(let i=0;i<pd.length;i++)pd[i].move=_re_move(10,.9) //make all enemies fast as sh*t
 }}
-function Ef(i){let x=Fs[i];VB(x[1],bd[x[1][2]],x[0]);x[0]-=dt*2;return x[0]<0}
-
-//VISUALIZATI0NS.
-function Vs(s,t,D){let i=s[0],x=i[0],n=255
-setrgb(ctx,[n*i[2],n*i[3],n*i[4]],i[1]);switch(x){
-case 0:poly(ctx,s.slice(1).map(t),i[1]);break
-case 1:circle(ctx,t(s[1]),s[2][0],i[1]);break
-case 2:ctx.beginPath();arc(ctx,t(s[1]),s[2][0],D-s[2][1]/2,D+s[2][1]/2);ctx.stroke();break
-}
-}
-function Vs1(s,t,D,alp){let i=s[0],x=i[0],n=255
-setrgb(ctx,[n*i[2],n*i[3],n*i[4],alp],i[1]);switch(x){
-case 0:poly(ctx,s.slice(1).map(t),i[1]);break
-case 1:circle(ctx,t(s[1]),s[2][0],i[1]);break
-case 2:ctx.beginPath();arc(ctx,t(s[1]),s[2][0],D-s[2][1]/2,D+s[2][1]/2);ctx.stroke();break
-}
-}
-var rot=(x,t)=>[x[0]*cos(t)-x[1]*sin(t),x[0]*sin(t)+x[1]*cos(t)]
-var rot1=(x,v)=>mult([x[0]*v[0]-x[1]*v[1],x[0]*v[1]+x[1]*v[0]],1/M(v))
-var Vb=(s,d)=>Vs(d[0],(x)=>add(rot1(x,s[1]),s[0]),d[0][0][0]==2?atan2(s[1][1],s[1][0]):0)
-var VB=(s,d,alp)=>Vs1(d[0],(x)=>add(rot1(x,s[1]),s[0]),d[0][0][0]==2?atan2(s[1][1],s[1][0]):0,alp)
-var Vp=(s,d)=>Vs(d[0],(x)=>add([x[1],-x[0]],s[0]),-pi/2)
-var anim=0
-var psh=ml([[-1,-1],[1,-1],[0,2]],plh)
+function fukkMeUp(){let x='source-over source-in source-out source-atop destination-over destination-in destination-out destination-atop lighter copy xor multiply screen overlay darken lighten color-dodge color-burn hard-light soft-light difference exclusion hue saturation color luminosity'.split(' ').sort(()=>0.5-Math.random());ctx.globalCompositeOperation=x[0];divvy.innerHTML=x[0]}//many of these modes can lag your ass off XD
 
 
+MAIN();initStage(0)
+var fxckbtn=document.createElement('button');fxckbtn.innerHTML='fxck me';document.body.appendChild(fxckbtn);fxckbtn.onclick=MAIN
+var INTERVAL=setInterval(function(){if(window['fxcked-up'])clearInterval(INTERVAL);MAIN()},1000*dt)
 
-//UI & GAME
-function U(){let p1=Le(ps),b1=Le(bs),f1=Le(Fs);Es(stage)
 
-for(let i=0;i<b1;i++){let x=Eb(i);if(x.b){Fs.push([1,bs[i]]);bs.remove(i);i--;b1--}else{bs[i]=x.s}}
-for(let i=0;i<p1;i++){Ep(i)}
-for(let i=0;i<f1;i++){let x=Ef(i);if(x){Fs.remove(i);i--;f1--}}
-detE();if(!g&&!anim){detP()}gP()}
-function restage(){g=!1;ss=Is(sd[stage]);bs=[];ps=[];cpl=g;anim=0}
-function nextstage(){if(stage+1>=Le(sd)){g||(el('comp').innerHTML='you have passed all the levels')}else{stage++}restage()}
-function game(){if((g||cpl)&&!anim){anim=dt}setrgb(ctx,[0,0,0]);ctx.fillRect(0,0,w,h);plot();U();PA();}
-function plot(){let x=[255,255,255]
-//SCENE.
-setrgb(ctx,x,1);square(ctx,[0,0],m,1);Pb.forEach((i)=>Vb(i,[[[0,1,1,1,1],[0,0],[s_s,0]]]))
-//BULLETS.
-bs.forEach((i)=>Vb(i,bd[i[2]]))
-//PLANES.
-ps.forEach((i)=>Vp(i,pd[i[2]]))
-//PLAYER.
-setrgb(ctx,x);poly(ctx,Add(psh,pla))
-}
-ca.onmousemove=(e)=>(pla=Cl(tr1([e.offsetX,e.offsetY])))
-function gP(){if(ple>0){ple-=dt}else{
-ple=pA;Pb=Pb.concat(list((1-pN)*pR/2,pR,pN).map((t)=>[pla,rot([0,pV],t)]))
-}
-let L=Le(Pb);for(let i=0;i<L;i++){let y=ad(...Pb[i]);if(iv(y,0)){Pb[i][0]=y}else{Pb.remove(i);i--;L--}}
-}
-function PA(){if(anim){anim+=dt}
-if(anim>=3) g?restage():nextstage()
-if(anim>0&&anim<1){setrgb(ctx,[255*g,0,255*(1-g),sqrt(1-anim)],1);square(ctx,pla,0.2+anim,1)}
-if(anim>=1&&anim<3){setrgb(ctx,[255,255,255,min(1,anim-1)]);ctx.fillRect(0,0,w,h)}
-}
-restage()
-
-setInterval(game,1000*dt)
-
-//debug.
-var dS=(x)=>(stage=x,restage())
 
 </script>
-
-
 </body>
 </html>
