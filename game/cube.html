@@ -1,327 +1,738 @@
 <html>
 <body>
-<canvas id='c' width='400' height='400'></canvas>
-<button onclick='game()'>1</button><br>
-<div id='div'></div>
+<div id='c'></div><br>
+<div id='ui'></div>
 <script>
-//variables
-var cast=1
-var pla1=1
-var a=0
-var S1=[1];stage=0;S2=[7,8,9,10,11,12,13,14,15,16]
-var S3=[3];S4=[1,2,5,6,7,8,9,10,11]
-var S5=[1,2,4];S6=[1,2,3,4]
-var S7=[1,2,3,4,9,10];S8=[1,2,3,4,5,6,7,8,9,10]
-var S9=[1,3,4,5,6,8,9];S10=[1,2,3,4]
-var S11=[1,2,3,5];S12=[1,2,5]
-var S13=[1,2,3,4,5,6,17,18,19,22,23];S14=[1,2]
-var S15=[1,2,3,4,5];S16=[1,2,3,4,5,6,7,8]
-var S17=[1,2,3,4,6,7,11,14];S18=[1,2,3,4,5,6,7,8,9,10]
-var S19=[1,2,3,4,5,6,7,8,9,10,16,17,18,21];S20=[1,2,3,4,5,6,8,12,20,23,24,26]
-var S21=[1,2,5,6,7,8,9,10,11,12,14,15,18];S22=[1,4,5,6]
-var S23=[1,3,4,6,8,10];S24=[1,2,3,5,6,7,8,9]
-var S25=[1,2,3,4,5,6,7,8];S26=[1,2,3,4,5,6]
-var S27=[1,2,3,4,6,9];S28=[1,2,3,4,5,6,7,8,17]
-var S29=[1,2,4,5,8,9,10,15];S30=[1,2,4,5]
-var S31=[1,2,3,6,7,8,9,10];S32=[1,2,3,6,7,9,11,13,15,17,19,21,23,25]
-var S33=[1,3,4,5];S34=[1,2,3,4,5,6,7,8,9,10,11]
-var S35=[1,4,5,8,9,10,11,12];S36=[1,3,5,6,8,9,10,11,12]
-var S37=[1,2,3,4,5,7,9,11,12,13];
-var Sta=[S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12,S13,S14,S15,S16,S17,S18,S19,S20,S21,S22,S23,S24,S25,S26,S27,S28,S29,S30,S31,S32,S33,S34,S35,S36,S37];
-function obj(){return Sta[stage]}
+var ca=document.createElement('canvas'),gl=ca.getContext('webgl2')
+document.getElementById('c').appendChild(ca)
+ca.width=ca.height=500
+var perlinNoise=(x,y=2)=>`float rdm(vec2 co){float seed=1.14514,cont=43758.5453*seed*seed;vec2 se=vec2(12.9898,78.233);return fract(sin(dot(se.xy,co)+seed)*cont);}float noise(vec2 co){float n=${x.toFixed(2)};vec2 s=vec2(1,0);vec2 f=smoothstep(vec2(0),vec2(1),fract(co*n)),b=floor(co*n);return mix(mix(rdm(b),rdm(b+s),f.x),mix(rdm(b+s.yx),rdm(b+s.xx),f.x),f.y);}float fbm(vec2 co){vec2 v=co;float t=0.0,a=0.5,k=0.5;for(int i=0;i<4;i++){t+=a*noise(v);v*=${y.toFixed(2)};a*=k;}return t;}`
+window.onerror=function(m,s,l,c){if(window['fxcked-up'])return;window['fxcked-up']='This is not a bug,it is a feature.';let x=document.createElement('div');x.id='my code has no errors!!';document.body.appendChild(x);window['my_code_has_no_errors']=0;window['my_code_literally_has_no_errors']=setInterval(function(){window['my_code_has_no_errors']=(window['my_code_has_no_errors']+1.2)%360;x.style.color=`hsl(${window['my_code_has_no_errors']},100%,50%)`},50);x.innerHTML=`Boi you fukked up - there's an error in the code(oh shite) (message:${m},source:${s},at line ${l},column ${c})`}
+var vs=gl.createShader(gl.VERTEX_SHADER),fs=gl.createShader(gl.FRAGMENT_SHADER)
+var pr0=gl.createProgram(),buf=gl.createBuffer()
+var gl_ver='#version 300 es\n'
+var tsize=64 //texture size
+var useLightMap=0 //doesn't work...........
+var vsource=`in vec4 a;out vec2 pos;void main(){gl_Position=a;pos=10.0*a.xy;}`
+var fsource=`
+#define tsize ${tsize.toFixed(1)}
+#define res vec2(${ca.width.toFixed(1)},${ca.height.toFixed(1)})
+uniform vec2 pla;uniform sampler2D wannaFvckMyself;
+uniform sampler2D t_img;
+uniform vec2 goal;uniform float gstate;uniform float g_anim;uniform float iTime;
+uniform vec4 portal;
+uniform float isFB;
+uniform float vs;
+uniform float blur;
+in vec2 pos;
+mat2 rot(float t){float c=cos(t),s=sin(t);return mat2(c,s,-s,c);}
+vec2 zoom_in(vec2 x){vec4 p=portal;return rot(p.w)*x*p.z/10.+p.xy;} //+1 layer of portal
+vec2 zoom_out(vec2 x){vec4 p=portal;return rot(-p.w)*(x-p.xy)*10./p.z;} //-1 layer of portal
+float dot2(vec2 x){return dot(x,x);}
+float det2(vec2 x,vec2 y){return x.x*y.y-x.y*y.x;}
+float tr(float x){float y=2.*x-1.;return y/(1.-abs(y));}
+vec4 tex(float n){float x=n/tsize;vec4 t=texture(wannaFvckMyself,vec2(fract(x),floor(x)/tsize));/*t.x=tr(t.x);t.y=tr(t.y);*/return t;}
+int ints(vec2 d,vec2 a,vec2 b){vec2 n=vec2(-d.y,d.x);float u=dot(n,a),v=dot(n,b);
+if(u==v&&u==0.&&(dot(a,d)>=0.||dot(b,d)>=0.))return 2;
+if((u==0.&&dot(a,d)>=0.)||(v==0.&&dot(b,d)>=0.))return 1;
+if(u*v<0.&&(u-v)*det2(a,b)>=0.)return 2;
+return 0;}
+int ints2(vec2 a,vec2 b){vec2 v0=vec2(1.14514,1.919810);float u=dot(a,v0),v=dot(b,v0);
+return u*v<0.&&(u-v)*det2(a,b)<0.?2:0;}
+int ints_seg(vec2 d,vec2 a,vec2 b){vec2 n=vec2(-d.y,d.x);float u=dot(n,a),v=dot(n,b);
+if(u*v<0.){float y=v-u;float t=det2(a,b)*y;if(t>=0.&&t<=y*y)return 2;}
+return 0;}
+bool ints_B(vec2 p0,vec2 p1,vec4 b){ //i fugged it up
+vec2 b0=b.xz,b1=b.yw;vec2 d=p1-p0;vec2 t_near=(b0-p0)/d,t_far=(b1-p0)/d;
+float t_min=max(0.,max(t_near.x,t_near.y)),t_max=min(1.,min(t_far.x,t_far.y));
+return t_min<=t_max;
+}
+float ints_d_seg(vec2 p,vec2 d,vec2 a,vec2 b){vec2 v=b-a;float t=det2(v,p-a)/det2(d,v);vec2 x=p+d*t;return dot(x-a,x-b)<=0.0?t:1e10;}
+float ints_d_obj(vec2 p,vec2 d,float s,float e){s++;vec4 a=tex(s),b=tex(s+1.);if(a.w!=1.)return 1e10;
+if(a.z==1.){vec2 v=p-a.xy;float c0=dot2(v)-b.x*b.x,c1=2.*dot(d,v),c2=dot2(d),D=c1*c1-4.*c0*c2;if(D<0.)return 1e10;float x1=sqrt(D)-c1;return x1<0.?1e10:x1/(2.*c2);}
+float d1=1e10;for(float i=s;i<e;i++){d1=min(d1,ints_d_seg(p,d,a.xy,b.xy));a=b;b=tex(s+mod(i-s+2.,e-s));}
+return d1;}
 
-//tracks
-var Ti=[
-1,1,1,1,1,1,1,1,0,0,
-0,5,1,1,0,1,0,0,0,1,
-10,2,0,5,1,0,0,0,2,1,
-0,1,0.6,1,1,1,1]
-var T0=[[-10,0],[9,0]];T9=[[-8,-8],[-8,8],[8,8],[8,-8]]
-var T10=[[-6,-6],[-6,6],[6,6],[6,-6],[-5,-6],[-5,5],[5,5],[5,-5],[-4,-5],[-4,4],[4,4],[4,-4],[-3,-4],[-3,3],[3,3],[3,-3],[-2,-3],[-2,2],[2,2],[2,-2],[-1,-2],[-1,1],[1,1],[1,-1],[0,-1],[0,0]]
-var T11=[[-9,-9],[-9,9],[9,9],[9,-9],[-6,-9],[-6,6],[6,6],[6,-6]]
-var T12=[[-5,0],[5,0],[-6,0],[6,0],[-7,0],[7,0],[-8,0],[8,0],[-9,0],[9,0]]
-var T15=[[-9,5],[0,5],[0,-5],[9,-5]]
-var T17=[[-8,-8],[8,-8],[8,8],[0,8]]
-var T18=[[-8,8],[8,8],[8,4],[-8,4],[-8,0],[8,0],[8,-4],[-8,-4],[-8,-8],[8,-8]]
-var T19=[[-8,6],[6,6],[6,-6],[-6,-6]]
-var T21=[[0,0],[0,8],[-8,8],[-8,-8],[8,-8],[8,8],[0,8],[0,-10]]
-var T22=[[-10,8],[8,8],[8,-8],[-8,-8],[-8,7]]
-var T23=[[-7,-7],[-5,-7],[-5,-5],[-3,-5],[-3,-3],[-1,-3],[-1,-1],[1,-1],[1,1],[3,1],[3,3],[5,3],[5,5],[7,5],[7,7]]
-var T28=[[-8,0],[8,0]]
-var T281=[[-8,0],[9,0]];T29=[[-10,0],[8,0]]
-var T31=[[-9,-8],[-3,-8],[-3,0],[3,0],[3,8],[9,8]]
-var T33=[[-9.4,0],[8,0],[-9.9,0]]
-var T34=[[-9.4,0],[8,0]]
-var T36=[[-10,0],[1.2,0],[1.2,-5.1],[9,-5.1],[9,0]]
-var Tr=[T0,T0,T0,T0,T0,T0,T0,T0,T9,T10,
-T11,T12,T0,T0,T15,T0,T17,T18,T19,T0,
-T21,T22,T23,T12,T0,T28,T28,T281,T29,T0,
-T31,T0,T33,T34,T0,T36,T0]
-var Trc=()=>Tr[stage];Tic=()=>Ti[stage];Tc=()=>circ(['p'].concat(Trc()))
+float sw_outer(float t){return sqrt(t);}
+float sw_inner(float t){return t*t;}
 
-var isNum=(x)=>typeof(x)=='number'||typeof(x)=='undefined'
-var sin=(x)=>Math.sin(x)
-var cos=(x)=>Math.cos(x)
-var min=(x,y)=>Math.min(x,y)
-var max=(x,y)=>Math.max(x,y)
-var abs=(x)=>Math.abs(x)
-var sqrt=(x)=>Math.sqrt(x)
-var dot=(x,y)=>x[0]*y[0]+x[1]*y[1]
-var toList=(x)=>isNum(x)?[x]:x
-var add=(x,y)=>{if(isNum(x)&&isNum(y)){return x+y}else{var x1=toList(x).length;y1=toList(y).length;return list(0,1,max(x1,y1)).map((i0)=>add(toList(x)[min(i0,x1-1)],toList(y)[min(i0,y1-1)]))}}
-var un=(x)=>x!=undefined?x:[]
-var subt=(x,y)=>{if(isNum(x)&&isNum(y)){return x-y}else{var x1=toList(x).length;y1=toList(y).length;return list(0,1,max(x1,y1)).map((i1)=>subt(toList(x)[min(i1,x1-1)],toList(y)[min(i1,y1-1)]))}}
-var mult=(x,y)=>{if(isNum(x)){return x*y}else{var x1=toList(x).length;return list(0,1,x1).map((i2)=>mult(toList(x)[min(i2,x1-1)],y))}}
-function list(x,y,x1){var y1=[];for(let i1=0;i1<x1;i1++){y1[i1]=x+i1*y};return y1}
-function clone(x,y){var y1=[];for(let i1=0;i1<y;i1++){y1[i1]=x};return y1}
-var M=(x)=>Math.sqrt(x[0]*x[0]+x[1]*x[1])
-var Di=(x,y)=>M([un(x)[0]-un(y)[0],un(x)[1]-un(y)[1]])
-var pi=Math.PI
-var D=(x,y)=>Math.atan2(un(y)[1]-un(x)[1],un(y)[0]-un(x)[0])
-var mod=(x,y)=>x-y*Math.floor(x/y)
-var norm=(x)=>mod(x,2*pi)
-var norm1=(x)=>mod(x+pi,2*pi)-pi
-var deg=(x,y,z)=>norm1(norm(D(y,z))-norm(D(y,x)))
-var tr=(x)=>(x+10)*w/20
-var w=400
-var L=(x)=>un(x).length
-var elem=(x)=>document.getElementById(x)
-var ca=elem('c');ctx=ca.getContext('2d')
-function text1(){var x;if(!cast){x='off'}else{x='on'};return 'shade effect:'+x}
-function showcast(){elem('div').innerHTML=text1()}
-showcast()
-elem('div').onclick=function(){cast=1-cast;showcast()}
-function moveTo(x){ctx.moveTo(tr(un(x)[0]),tr(-un(x)[1]))}
-function lineTo(x){ctx.lineTo(tr(un(x)[0]),tr(-un(x)[1]))}
-function fillRect(x,y,z){ctx.fillRect(tr(x[0]),tr(-x[1]),y*w/20,z*w/20)}
-function strokeRect(x,y,z){ctx.strokeRect(tr(x[0]),tr(-x[1]),y*w/20,z*w/20)}
-function poly(x){ctx.beginPath();moveTo(x[0]);for(let i=1;i<L(x);i++){lineTo(x[i])};ctx.closePath();ctx.fill()}
-var isp=(x)=>x[0]=='p'
-function insp(x,y){var t0=0;x11=L(y);i5=0;while(i5<x11){t0+=deg(y[i5],x,y[(i5+1)%x11]);i5++};return abs(t0)>pi}
-var insc=(x,y)=>Di(x,y[0])<y[1][0]
-var excf=(x)=>Array.from(x).slice(1)
-var ins=(x,y)=>isp(y)?insp(x,excf(y)):insc(x,excf(y))
-function cir(x,y){ctx.beginPath();ctx.arc(tr(x[0]),tr(-x[1]),max(0,y)*w/20,0,2*pi);ctx.fill()}
-//ray casting method
-var al=(x,y)=>[x[0]+y[0],x[1]+y[1]]
-var sl=(x,y)=>[x[0]-y[0],x[1]-y[1]]
-var inset=(x,y,t)=>abs(t-(x+y)/2)<abs(x-y)/2
-var inf=Infinity
-var Deg=(x,y,t)=>abs(deg(x,y,t))
-var arg=(x,y)=>mod(D(x,y),2*pi)
-var indeg=(x,y,t)=>abs(min(Deg(x,pla(),y)-Deg(x,pla(),t)-Deg(y,pla(),t),Deg(x,t,y)-Deg(x,t,pla())-Deg(y,t,pla())))<1e-5
+float s_polygon(vec2 p,float s,float e){float d = dot2(p-tex(s).xy);float S = 1.0;
+for(float i=s, j=e-1.; i<e; j=i, i++ ){vec2 ti=tex(i).xy,tj=tex(j).xy;
+vec2 E = tj-ti;vec2 w = p-ti;vec2 b = w-E*clamp( dot(w,E)/dot2(E), 0.0, 1.0 );
+d=min(d,dot2(b));
+bvec3 cond = bvec3( p.y>=ti.y,  p.y <tj.y, E.x*w.y>E.y*w.x );
+if( all(cond) || all(not(cond)) ) S=-S;
+}  
+return S*sqrt(d);
+}
+bool inObj(vec2 p,float s,float e){
+vec4 B=tex(s);s++;//Boundin' B0x
+if(B.x>p.x||p.x>B.y || B.z>p.y||p.y>B.w)return false;
+vec4 a=tex(s),b=tex(s+1.);if(a.z==1.)return length(p-a.xy)<=b.x;
+if(a.z==.5){float l=length(p-a.xy);return l<=b.x&&b.x-0.02/b.x<=l;}
+if(a.z==.25){float l=length(p-a.xy);return sw_inner(b.y)*b.x<=l&&l<=sw_outer(b.y)*b.x;}
 
-var lerp=(x,y,t)=>[0,1].map((i)=>x[i]+t*(y[i]-x[i]))
-var end=(x,y)=>[lerp(pla(),x,30/sqrt(Di(pla(),x)**2-(dot(sl(y,x),sl(pla(),x))/Di(x,y))**2))]
-var mean=(x)=>mult(x.reduce((y,z)=>al(y,z)),1/L(x))
-var tg1=(x,y,r,z)=>{if(r>Di(x,y)){return [inf,0]}else{return add(y,mult(rot(subt(x,y),z*Math.acos(r/Di(x,y))),r/Di(x,y)))}}
-var tg=(x,y,r)=>[tg1(x,y,r,1),tg1(x,y,r,-1)]
-var vtx=(x)=>isp(x)?excf(x):tg(pla(),x[1],un(x[2])[0])
-var V=(x,i)=>vtx(x)[mod(i,L(x)-1)]
-var seg=(x,t)=>[V(x,t),V(x,t+1)]
-var sq1=(x)=>max(abs(x[0]),abs(x[1]));iv=(x)=>min(sq1(x[0]),sq1(x[1]))<10
-var sol=(x1,x2,x3,y1,y2,y3)=>x1*y2==y1*x2?[-1,-1]:mult([x3*y2-x2*y3,x1*y3-x3*y1],1/(x1*y2-x2*y1))
-var int=(x,y)=>sol(x[1][0],-y[1][0],y[0][0]-x[0][0],x[1][1],-y[1][1],y[0][1]-x[0][1])
-var isInt=(x)=>x[0]>0&&x[1]>0&&x[1]<1&&x[0]<1
-var int1=(x,y)=>isInt(int(x,y))?int(x,y)[0]:100
-var intr=(x,y)=>int1([x[0],sl(x[1],x[0])],[y[0],sl(y[1],y[0])])
-function int2(x,p,j){for(let i1=0;i1<L(p)-1;i1++){if(intr(x,seg(p,i1))<100&&i1!=mod(j-1,L(p)-1)&&i1!=mod(j,L(p)-1)){return true}};return false}
-function int20(x,p,j){let t=100;for(let i=0;i<L(p)-1;i++){let z=intr(x,seg(p,i));if(z<t&&i!=mod(j-1,L(p)-1)&&i!=mod(j,L(p)-1)){t=z}};return t}
-var int3=(i,p,p1)=>int20([pla(),p1[i]],p,i)
-var int4=(x,y,i)=>lerp(pla(),y[i],int3(i,x,y))
-var Dir=(x)=>x.map((y)=>norm(D(mean(x),y)))
-var sdir=(x)=>list(0,1,L(x)).sort((x1,x2)=>{return Dir(x)[x1]-Dir(x)[x2]}).map((y)=>x[y])
-function sh(x){poly(x.concat(end(x[1],x[0]),end(x[0],x[1])))}
-var isind=(x,i)=>!int2([pla(),(x)[i]],x,mod(i,L(x)))
-var isInd=(x,i)=>!isind(x,i)&&!indeg(V(x,i-1),V(x,i+1),V(x))
-function IsInd(x,i){let x1=isind(x,i);x2=isInd(x,i);y1=isind(x,i+1);y2=isInd(x,i+1);return (x1&&y1)||(x1&&y2)||(x2&&y1)}
-function Sh(x,i){if(IsInd(x,i)){sh(seg(x,i))}}
-function light(x){x.forEach((p)=>{for(let i=0;i<L(p)-1;i++){Sh(p,i)}})}
+//sdf method
+//return s_polygon(p,s,e)<0.0;
 
-//executing system
-function rot(x,t){return [x[0]*cos(t)-x[1]*sin(t),x[0]*sin(t)+x[1]*cos(t)]}
-var addtr=(t,x)=>isp(t)?[t[0]].concat(add(excf(t),clone(x,L(t)-1))):[t[0],add(x,t[1]),t[2]]
-var multtr=(t,x)=>isp(t)?[t[0]].concat(mult(excf(t),x)):[t[0],t[1],[un(t[2])[0]*x,0]]
-var rottr=(t,x)=>isp(t)?[t[0]].concat(excf(t).map((t1)=>rot(t1,x))):[t[0],rot(t[1],x),t[2]]
-function circ(x){var y=0;for(let i=2;i<L(x);i++){y+=Di(x[i],x[i-1])};return y}
-var Circ=(x)=>circ(x)+Di(x[1],x[L(x)-1])
-function intp(x,t){var t1=t;for(let i3=0;i3<=L(x);i3++){var x4=x[i3];x5=x[(i3+1)%L(x)];y=Di(x4,x5);if(t1<y){return lerp(x4,x5,t1/y)}else{t1-=y}}}
-var intpc=(x,t)=>add(x[0],rot([x[1][0],0],x[1][1]*t))
-var Intp=(x,t)=>isp(x)?intp(excf(x),max(0,t)):intpc(excf(x),t)
-var init=(x,t,i)=>{return [i,x[5]=='p'?0:x[5],x[6]>=4?(xAtp(Intp(x[4],max(0,x[5])))+x[6]-4):x[6],1,un(x[7])[0]>0?un(x[7])[2]:inf,un(x[1])[0]==2?un(x[1])[1]:(abs(x[1][0])==6?x[1][3]:inf),un(x[1])[0]==5?0:inf,0,0]}
-function plotobj(x,h){var y=cvtx(x,h);y1=excf(y);if(isp(y)){poly(y1)}else{cir(y1[0],y1[1][0])}}
-var aa=(x)=>max(0,x)
-function xAtp(x){return deg([x[0]+1,x[1]],x,pla())}
-var v=4;dt=0.05;ps=0.2
-function getId(r,x){var i=-1;for(let i1=0;i1<L(r);i1++){if(r[i1][0]==x-1){i=i1;break}};return i}
+//simplified ints method
+int n=0;for(float i=s;i<e;i++){n+=ints2(a.xy-p,b.xy-p);a=b;b=tex(s+mod(i-s+2.,e-s));}return n%4==2;
 
-function E1(d,r,n,u,t){var h=un(r[n]);x=un(d[u]);x1=x[8]*dt;y=r[max(0,getId(r,h[0]))][1];x2=un(x[7])[1]*dt;h1=false;r1=r;h2=true;var x0=d[max(0,x[2]-1)];
-var xnum=x[2];var ii=init(x0,t,x[2])
-var x01=x0
-h0=false
-switch(x[0]){case 1:h[1]+=x1;break
-case 2:h[1]=(h[1]+x1);break
-case 3:h[1]=mod(h[1]+x1,Circ(x[4]));break
-case 4:h[1]=max(0,min(h[1]+x1,circ(x[4])));break
-default:break}
-switch(un(x[7])[0]){case 1:if(h[4]>0){h[4]=aa(h[4]-dt);h[3]+=x2};break
-case 2:if(h[4]>0){h[4]=aa(h[4]-dt);h[2]=mod(h[2]+x2,2*pi)};break
-case 3:if(h[4]>0){h[4]=aa(h[4]-dt);h[7]+=dt*x[7][1]};break
-default:break}
-switch(un(x[1])[0]){case 1:if((abs(pla1-x[1][1])<=ps&&L(x[1])==2)||(inset(x[1][1],x[1][2],pla1)&&L(x[1])==3)){h0=true;h2=x[2]>0};break
-case 2:if(h[5]>0){h[5]=aa(h[5]-dt)}else{h0=true;h2=x[2]>0};break
-case 3:if(inset(x[1][1],x[1][2],y)){h0=true;h2=x[2]>0};break
-case 4:if(inset(x[1][3],x[1][4],y)&&inset(x[1][1],x[1][2],h[1])){h0=true;h2=x[2]>0};break
-case 5:if(h[6]>0){h[6]=aa(h[6]-dt)}else{h1=true;h[6]=x[1][1]};break
-case 6:if(inset(x[1][1],x[1][2],pla1)){h0=true;h2=x[2]>0}else if(h[5]>0){h[5]=aa(h[5]-dt)}else{if(x[2]>0){x0=d[max(0,L(x[1])<5?1:x[1][4]-1)];xnum=x[1][4];h0=true}};break
-case -1:if(inset(x[1][1]-h[1],x[1][2]-h[1],pla1)){h0=true;h2=x[2]>0};break
-default:break}
-if(x[5]=='p'){h[1]=pla1}
-r1=r1.filter((x3,y3)=>y3!=n)
-if(h0){if(x0[5]<0){x0[5]=(x0[0]==1?h[8]:h[1])};ii=init(x0,t,xnum);x01[5]=h[1];ii[2]=init(x01,t,xnum)[2];ii[8]=(x[0]==1?h[8]:h[1]);if(x[9]){ii[1]=0}}
-if(h1){if(x0[5]<0){x0[5]=(x0[0]==1?h[8]:h[1])};ii=init(x0,t,xnum);x01[5]=h[1];ii[2]=init(x01,t,xnum)[2];ii[8]=(x[0]==1?h[8]:h[1]);
-r1=r1.concat([ii])};if(h2){r1[L(r1)]=h0?ii:h};return r1}
+//return false;
+}
 
-var E2=(d,r,n,t)=>E1(d,r,n,r[n][0]-1,t).filter((x)=>x[0]!=0)
-function E(){var k1=0;while(k1<L(St)){St=E2(cD(),St,0,pla());k1++};a+=dt}
-function Init(d,t){var z=[];k0=0;for(let k=0;k<L(d);k++){if(inlist(k+1,obj())){z[k0]=init(d[k],t,k+1);k0++}};return z}
-function inlist(x,y){return un(y).filter((q)=>q==x).length>0}
-//stage design
-function pla(){return intp(Trc(),pla1)};
-var dir=0
-function goal(){return intp(Trc(),Tc())}
-var cla=(x,y,t)=>min(y,max(x,t))
-var A27r=[0,0,0,0,0,0,0,0,0]
-var A32r=[0,0,0,0,0,0,0,0,0,0]
-var D1=()=>[[3,[0,0],1,['c',[0,0],[1,0]],['p',[0,5],[0,-5]],5,0,[0,0,0],10]]
-var Data=()=>[D1(),D2(),D3(),D4(),D5(),D6(),D7(),D8(),D9(),D10(),D11(),D12(),D13(),D14(),D15(),D16(),D17(),D18(),D19(),D20(),D21(),D22(),D23(),D24(),D25(),D26(),D27(),D28(),D29(),D30(),D31(),D32(),D33(),D34(),D35(),D36(),D37()]
-var St=Init(D1(),pla())
-var border=['p',[10,10],[10,-10],[-10,-10],[-10,10]]
-function plotObj(d,r){for(let k=0;k<L(r);k++){plotobj(d[r[k][0]-1],r[k])}}
-function sq(x,y){fillRect([x[0]-y,x[1]+y],2*y,2*y)}
-function sqS(x,y){strokeRect([x[0]-y,x[1]+y],2*y,2*y)}
-function Light(d,r){var x=[];for(let k=0;k<L(r);k++){x[k]=cvtx(d[r[k][0]-1],r[k])};return x}
-function cvtx(x,h){var y;var x1=Intp(x[4],h[8])
-if(x[0]==1){y=add(x1,rot([h[1],0],h[2]))}else{y=Intp(x[4],h[1])};return addtr(multtr(rottr(un(x)[3],h[2]),h[3]),add(y,[h[7],0]))}
-function plot(d,r){raycast();ctx.fillStyle='rgb(255,0,0)';ctx.strokeStyle='rgb(255,0,0)';sq(pla(),ps);sqS(goal(),ps);psw();ctx.fillStyle='rgb(0,0,0)';plotObj(cD(),St)}
-document.onkeydown=function(event){var event=event||window.event;x=event.keyCode;if(x==37){dir=-1}else if(x==39){dir=1}}
-function mean1(x){if(isp(x)){return mean(excf(x))}else{return x[1]}}
-function ndc(){return Light(cD(),St).map((x)=>Di(pla(),mean1(x))).reduce((x1,y1)=>x1<y1?x1:y1)}
-document.onkeyup=function(event){var event=event||window.event;x=event.keyCode;if(x==37||x==39){dir=0}}
-function setcolor(x){ctx.fillStyle='rgb('+x+','+x+','+x+')'}
-var ls=200
-function raycast(){ctx.clearRect(0,0,400,400);if(cast==1){ctx.fillStyle='rgb('+ls+','+ls+','+ls+')';light(Light(cD(),St))}}
-plot(D1(),St)
-id=setInterval(game,1000*dt)
+#if ${1-useLightMap}
+bool inShade(vec2 p,float s,float e){
+vec4 B=tex(s);s++;if(!ints_B(pla,p,B))return false;
+vec4 a=tex(s),b=tex(s+1.);if(a.w!=1.)return false;if(a.z==1.){return length(clamp(dot(pla-p,a.xy-p)/dot2(pla-p),0.,1.)*(pla-p)-(a.xy-p))<b.x;}
+else if(a.z==0.){
+for(float i=s;i<e;i++){if(ints_seg(pla-p,a.xy-p,b.xy-p)>0)return true;a=b;b=tex(s+mod(i-s+2.,e-s));}
+}
+return false;
+}
+#else
+bool inShade(vec2 p,float s,float e){
+vec2 v=p-pla;float a=mod(atan(v.y,v.x)/6.283+1.,1.)*res.x;float d1=texture(t_img,vec2(floor(a)/res.x,0)).x;
+return d1*30.<=length(v);
+}
+#endif
 
-//actions
-function u1(){pla1=cla(0,Tc(),pla1+v*dt*dir)}
-var anim=0
-function u2(){if(anim>0){anim=min(anim+dt,3)};if(anim==3){nextstage()}}
-function u31(){if(inset(0,1,anim)){ctx.strokeStyle='rgba(255,0,0,'+(1-anim)+')';sqS(pla(),anim)}}
-function u32(){if(inset(1,3,anim)){ctx.fillStyle='rgba(255,255,255,'+min(1,anim-1)+')';sq([0,0],10)}}
-var g=true
-function wtf(){a=0;A27r=[rdm(0,2*pi),rdm(-7,3),rdm(-5,5),rdm(0,2*pi),rdm(-7,3),rdm(-5,5),rdm(0,2*pi),rdm(-7,3),rdm(-5,5)];for(let i=0;i<10;i++){A32r[i]=rdm(-7,7)}}
-function nextstage(){if(stage<L(Data())-1&&g){stage++;pla1=Tic();wtf();St=Init(cD(),pla());anim=0}else if(!g){pla1=Tic();wtf();St=Init(cD(),pla());g=true;anim=0}else if(stage>=L(Data())-1&&g){document.getElementById('div').innerHTML='you have passed all the levels'}}
-function cD(){return Data()[stage]}
-function rest(){g=false;anim=dt}
-function Ins(d,r,x){for(let k=0;k<L(r);k++){if(ins(x,cvtx(d[r[k][0]-1],r[k]))){return 1}}}
-var over=()=>Ins(cD(),St,add(pla(),[0,ps]))==1||Ins(cD(),St,add(pla(),[0,-ps]))==1
-var dynamic=false
-var dynstr=20
-function u4(){if(over()){rest()}else if(Tc()-pla1<ps){anim=dt}}
-function game(){if(!anim){u4()};u2();E();if(g){u1()};plot(cD(),St);u31();u32();if(dynamic){ls=dynstr*ndc()}}
-function swp(){return Trc().slice(1).slice(0,L(Trc())-2)}
-function psw(){swp().forEach((x)=>{poly(excf(addtr(['p',[ps,0],[0,ps],[-ps,0],[0,-ps]],x)))})}
-//built-in shapes
-function rect(x1,x2,y1,y2){return ['p',[x1,x2],[x1,y2],[y1,y2],[y1,x2]]}
-function cross(x){var y=x[0];z=x[1];return ['p',x,[-y,z],[-y,-y],[z,-y],[z,y],[-y,y],[-y,-z],[y,-z],[y,y],[-z,y],[-z,-y],[y,-y]]}
-function icicle(x){return ['p',[0,-x],[-x,0],[0,x],[3*x,0]]}
-function ci(x){return ['c',[0,0],[x,1]]}
-function Ci(x,y,z){return ['c',[y,z],[x,1]]}
-function plane(x){return ['p',[0,0],[-x,-x],[x,0],[-x,x]]}
-function gun(x){return ['p',[x,0],[0,x],[-x,0],[0,-x],[x,0],[-x/4,-x/2.4],[-x/4,x/2.4]]}
-function spike(x){return ['p',[0,x],[3*x,0],[0,-x]]}
-function alley(x1,y1,x,y,z){return ['p',[x1+x,y1-x],[x1+x,y1+x],[x1-x,y1+x],[x1-x,y1-x],[x1-y,y1-x],[x1-y,y1-x+z],[x1+y,y1-x+z],[x1+y,y1-x]]}
-var dm=['c',[0,0],[0,1]];var ds=Ci(1,11,11)
-//built in objects
-function static(x,i){return [0,[i[0],i[1]],i[2],x,dm,0,0,[0,0,0],0]}
-function Spin(x,y,t,z){return [0,[0,0],1,x,['c',y,[0,1]],0,0,[2,t,z],0]}
-function spin(x,y,t){return [0,[0,0],1,x,['c',y,[0,1]],0,0,[2,t,inf],0]}
-function spin1(x,y,t1,t,r){return [0,[0,0],1,addtr(x,[t1,0]),['c',y,[0,1]],0,r,[2,t,inf],0]}
-function swing(x,r,t){return [3,[0,0],1,x,['p',[0,0],[0,r]],0,0,[0,0,0],abs(2*r/t)]}
-function Swing(x,r,t){return [3,[0,0],1,x,['p',[0,0],[r,0]],0,0,[0,0,0],abs(2*r/t)]}
-function gate(x,t){return [4,[0,0],1,x,['p',[0,0],[0,t]],0,0,[0,0,0],abs(t)]}
-function Gate(x,t){return [4,[0,0],1,x,['p',[0,0],[t,0]],0,0,[0,0,0],abs(t)]}
-function rotate(x,y,r,d,t){return [2,[0,0],1,x,['c',y,[r,1]],d,0,[0,0,0],2*pi/t]}
-function rail(x,y,r,t){return [1,[2,20],0,x,['p',y,add(y,[1,0])],-1,r,[0,0,0],t]}
-function gate1(x,t,r){return [4,[0,0],1,x,['p',[0,0],[0,r]],-1,0,[0,0,0],t]}
-function gate2(x,y,t,t1){return [4,[0,0],1,x,['p',[y,0],[y,t]],0,0,[0,0,0],abs(t/t1)]}
-function expand(x,i,y,t){return [0,[i[0],i[1]],i[2],multtr(x,0.01),Ci(0,y[0],y[1]),0,0,[1,99/t,t],0]}
-function dS(x){stage=x-1;nextstage()}
+float sdf_box(vec2 p,vec2 c,float r){vec2 d=abs(p-c)-r;return length(max(d,0.0))+min(max(d.x,d.y),0.0);}
 
-//warning!stages are coming
-function D2(){return [gate(rect(-5,0,-4.8,-10),-0.5),gate(rect(-5,0,-4.8,10),0.5),gate(rect(0,0,0.2,-10),-0.5),gate(rect(0,0,0.2,10),0.5),gate(rect(5,0,5.2,-10),-0.5),gate(rect(5,0,5.2,10),0.5),static(rect(-5,0,-4.8,-10),[1,4.9,1]),static(rect(-5,0,-4.8,10),[1,4.9,2]),static(rect(0,0,0.2,-10),[1,9.9,3]),static(rect(0,0,0.2,10),[1,9.9,4]),static(rect(5,0,5.2,-10),[1,14.9,5]),static(rect(5,0,5.2,10),[1,14.9,6]),swing(['p',[-3,0],[-2,0],[-2.5,1]],1,1),swing(['p',[-3,0],[-2,0],[-2.5,-1]],-1,1),rotate(ci(0.4),[2.5,0],1,pi,2),rotate(ci(0.4),[2.5,0],1,0,2)]}
-function D3(){return [[3,[0,0],1,ci(4),['p',[0,6],[0,-6]],6,0,[0,0,0],2.5],[0,[2,2],1,ci(1),dm,0,0,[1,6,0.5],0],[0,[1,6.9],2,ci(1),dm,0,0,[0,0,0],0]]}
-var A1=Math.sqrt(3)/2
-function D4(){return [static(['c',[0,9],[1,0]],[5,2,3]),static(['c',[0,-9],[1,0]],[5,2,4]),rail(icicle(0.4),[0,9],4,4),rail(icicle(0.4),[0,-9],4,4),swing(rect(-6,-1,-5,-5),6,30),swing(rect(-4,-1,-3,-5),6,24),swing(rect(-2,-1,-1,-5),6,20),swing(rect(0,-1,1,-5),6,16),swing(rect(2,-1,3,-5),6,12),swing(rect(4,-1,5,-5),6,8),swing(rect(6,-1,7,-5),6,4)]}
-function D5(){return [[4,[2,15],0,['p',[0.75,1.5*A1],[1.5,0],[0.75,-1.5*A1],[-0.75,-1.5*A1],[-1.5,0],[0,0],[-0.75,1.5*A1]],
-['p',[19,A1],[-14,A1]],0,0,[2,pi/3,15],3],
-swing(rect(-8,-1,-7,-5),6,6),
-[4,[4,21.4,21.6,1,5],0,rect(-0.5,0.5,0.5,-0.5),['p',[14,0],[-11,0]],0,0,[0,0,0],4],
-static(rect(8,10,9,-10),[1,17,5]),
-[4,[5,1000],3,rect(8,10,9,-9),['p',[0,0],[0,10]],0,0,[0,0,0],1]]}
-function Static(x,i){return [0,[i[0],i[1],i[2]],i[3],x,dm,0,0,[0,0,0],0]}
-var A6=['p',[5,3],[7,1],[6,1],[5,2],[4,1],[3,1]]
-function D6(){return [[0,[1,4,5],0,rect(-0.5,3,0.5,-3),['c',[-5,0],[0,0]],0,0,[2,pi,10],0],[4,[1,10,20],6,rect(-1,10,1,4),['p',[0,0],[0,-11]],0,0,[0,0,0],1],[4,[1,10,20],7,rect(-1,-4,1,-10),['p',[0,0],[0,11]],0,0,[0,0,0],1],Static(A6,[3,4,11,5]),[4,[0,0],1,A6,['p',[0,0],[0,-1]],0,0,[0,0,0],2],[0,[0,0],6,rect(-1,10,1,4),['p',[0,0],[0,-11]],-1,0,[0,0,0],1],[0,[0,0],7,rect(-1,-4,1,-10),['p',[0,0],[0,11]],-1,0,[0,0,0],1]]}
-function D7(){return [static(rect(-6,2,-5,-2),[1,3.9,5]),static(rect(-5,2,-4,-2),[1,4.9,6]),spin(cross([-0.5,3.5]),[0,2.5],pi/2),static(['c',[5,0],[0.5,0]],[1,14.3,7]),gate(rect(-6,2,-5,-2),-3),gate(rect(-5,2,-4,-2),3),[0,[2,1],8,['c',[5,0],[0.5,0]],dm,0,0,[1,5,0.5],0],[3,[0,0],1,ci(1.75),['p',[5,5],[5,-5]],5,0,[0,0,0],5],[1,[0,0],1,rect(-6,10,10,-10),['p',[0,0],[1,0]],0,0,[0,0,0],1],[1,[0,0],1,rect(-31,10,-11,-10),['p',[0,0],[1,0]],0,0,[0,0,0],1]]}
-function D8(){return [[0,[1,4.8],0,['p',[0,0],[0.5,2.5],[-0.5,2.5]],['c',[-5,0],[0,1]],0,pi/2,[2,pi,inf],0],[0,[1,4.8],0,['p',[0,0],[0.5,2.5],[-0.5,2.5]],['c',[-5,0],[0,1]],0,-pi/2,[2,pi,inf],0],static(['c',[0,5],[1,0]],[5,4,11]),static(['c',[0,2.5],[1,0]],[5,5,12]),static(['c',[0,-2.5],[1,0]],[5,6,13]),static(['c',[0,-5],[1,0]],[5,7,14]),swing(rect(-2,-4.5,2,-5.5),10,3),rotate(['c',[0,0],[0.5,0]],[5,0],1.5,0,2),rotate(['c',[0,0],[0.5,0]],[5,0],1.5,2*pi/3,2),rotate(['c',[0,0],[0.5,0]],[5,0],1.5,4*pi/3,2),rail(icicle(0.4),[0,5],4,4),rail(icicle(0.4),[0,2.5],4,4),rail(icicle(0.4),[0,-2.5],4,4),rail(icicle(0.4),[0,-5],4,4)]}
-function D9(){return [static(rect(-10,-5,-7.5,-5.5),[1,2,2]),Gate(rect(-10,-5,-7.5,-5.5),2.5),Swing(['c',[-10,2],[0.8,0]],20,1.2),Swing(['c',[-10,0],[0.8,0]],20,2),Swing(['c',[-10,-2],[0.8,0]],20,3),static(rect(0,6,5,5),[1,24,7]),[0,[0,0],1,rect(0,1,5,0),['c',[0,5],[0,1]],0,0,[2,pi/2,2],0],static(['p',[8,0],[10,2],[9,3],[8,2],[7,3],[6,2]],[1,35,11]),static(['p',[8,2],[9,3],[8,4],[7,3]],[1,29,10]),[4,[0,0],1,['p',[0,-1],[1,0],[0,1],[-1,0]],['p',[8,3],[2,17]],0,0,[0,0,0],8],rail(['p',[0,-8],[2,-10],[3,-9],[2,-8],[3,-7],[2,-6]],[0,0],pi/2,3)]}
-function D10(){return [static(['c',[-9,-9],[0.6,0]],[5,2,5]),static(['c',[-9,9],[0.6,0]],[5,2,6]),static(['c',[9,9],[0.6,0]],[5,2,7]),static(['c',[9,-9],[0.6,0]],[5,2,8]),rail(icicle(0.3),[-9,-9],4,4),rail(icicle(0.3),[-9,9],4,4),rail(icicle(0.3),[9,9],4,4),rail(icicle(0.3),[9,-9],4,4),swing(rect(-0.5,10,0.5,6),-16,2),[3,[0,0],1,rect(-2,0.5,2,-0.5),['p',[8,0],[-8,0]],8,0,[0,0,0],16],rotate(['c',[0,0],[0.6,0]],[0,0],3,0,2),rotate(['c',[0,0],[0.6,0]],[0,0],3,pi,2)]}
-function D11(){return [[2,[5,2.1],4,ci(0.4),ci(5),0,0,[0,0,0],-pi/2],[2,[5,2.1],4,ci(0.4),ci(5),2*pi/3,0,[0,0,0],-pi/2],[2,[5,2.1],4,ci(0.4),ci(5),4*pi/3,0,[0,0,0],-pi/2],[1,[0,0],1,icicle(0.4),ci(5),-1,4,[0,0,0],4],spin(rect(-10,0.5,10,-0.5),[0,0],-pi/20)]}
-function D12(){return [[3,[5,2],3,ci(0.5),['p',[-8,4],[8,4]],0,0,[0,0,0],3],[3,[5,2],4,ci(0.5),['p',[8,4],[-8,4]],0,0,[0,0,0],3],[1,[0,0],1,icicle(0.4),['p',[-8,4],[8,4]],-1,-pi/2,[0,0,0],4],[1,[0,0],1,icicle(0.4),['p',[8,4],[-8,4]],-1,-pi/2,[0,0,0],4],static(['c',[0,8],[0.5,0]],[5,1,6]),rail(icicle(0.4),[0,8],4,4)]}
-function D13(){return [[3,[0,0],1,rect(13,3,18,-3),['p',[0,0],[-6,0]],3,0,[0,0,0],4],[3,[0,0],1,rect(-7,3,-12,-3),['p',[0,0],[-6,0]],3,0,[0,0,0],4],[4,[0,0],1,rect(-10,0.5,10,-0.5),['p',[0,55],[0,1.5]],0,0,[0,0,0],9],[4,[0,0],1,rect(-10,0.5,10,-0.5),['p',[0,-55],[0,-1.5]],0,0,[0,0,0],9],[4,[2,23],15,rect(-7.5,10,-6.5,-10),['p',[0,60],[0,0]],0,0,[0,0,0],20],[4,[2,23],16,rect(7.5,10,6.5,-10),['p',[0,60],[0,0]],0,0,[0,0,0],20],[4,[5,2],10,ci(0.5),['p',[-5,11],[-5,4]],0,0,[0,0,0],5],[4,[5,2],11,ci(0.5),['p',[0,11],[0,8]],0,0,[0,0,0],5],[4,[5,2],12,ci(0.5),['p',[5,11],[5,4]],0,0,[0,0,0],5],[1,[0,0],1,icicle(0.5),['p',[-5,11],[-5,4]],-1,4,[0,0,0],4],[1,[0,0],1,plane(0.5),['p',[0,11],[0,4]],-1,4,[0,0,0],4],[1,[0,0],1,icicle(0.5),['p',[5,11],[5,4]],-1,4,[0,0,0],4],rotate(ci(0.6),[0,0],3,0,2),rotate(ci(0.6),[0,0],3,pi,2),[4,[0,0],1,rect(-7.5,10,-6.5,-10),['p',[0,0],[0,-11]],0,0,[0,0,0],1],[4,[0,0],1,rect(7.5,10,6.5,-10),['p',[0,0],[0,-11]],0,0,[0,0,0],1],static(['c',[11,11],[1,0]],[2,6,7]),static(['c',[11,11],[1,0]],[2,6,8]),static(['c',[11,11],[1,0]],[2,6,9]),[0,[2,1],13,ci(0.01),['c',[3,0],[0,1]],0,0,[1,100,0.6],0],[0,[2,1],14,ci(0.01),['c',[-3,0],[0,1]],0,0,[1,100,0.6],0],static(['c',[11,11],[1,0]],[2,6,20]),static(['c',[11,11],[1,0]],[2,6,21])]}
-function D14(){return [[4,[-1,23,25],0,cross([-0.5,3]),['p',[15,0],[-15,0]],0,1,[2,pi/2,6],5],[3,[5,2],3,rect(-0.5,2,0.5,-2),['p',[8,3],[8,-3]],3,0,[0,0,0],3.1],[3,[2,10],0,rect(-0.5,2,0.5,-2),['p',[8,3],[8,-3]],-1,0,[3,-2,10],4.7]]}
-function D15(){return [rail(rect(-1,1,1,-1),[9,5],pi,3),Swing(['c',[3,0],[0.6,0]],-6,2),static(rect(4,-3,5,-7),[1,22.5,6]),static(rect(5,-3,6,-7),[1,23.5,7]),static(rect(6,-3,7,-7),[1,24.5,8]),gate(rect(4,-3,5,-7),3),gate(rect(5,-3,6,-7),4),gate(rect(6,-3,7,-7),5)]}
-function D16(){return [swing(['p',[-8,0],[-7,2],[-6,0]],2,1),swing(['p',[-8,0],[-7,-2],[-6,0]],-2,1),spin(['c',[-5,0],[0.6,0]],[0,0],5),spin(['c',[-4,0],[0.6,0]],[0,0],4),spin(['c',[-3,0],[0.6,0]],[0,0],3),spin(['c',[-2,0],[0.6,0]],[0,0],2),spin(['c',[-1,0],[0.6,0]],[0,0],1),[3,[0,0],1,cross([-0.1,2]),['p',[6,3],[6,-3]],3,0,[2,pi,inf],4]]}
-function D17(){return [spin(cross([-0.2,3]),[-5,-5],pi/4),spin(cross([-0.2,3]),[0,-5],pi/4),spin(cross([-0.2,3]),[-2.5,-11],-pi/4),[4,[1,10.5],16,rect(0,-6,1,-10),['p',[10,0],[3,0]],7,0,[0,0,0],1],[4,[-1,17.5,17.7],16,rect(0,-6,1,-10),['p',[10,0],[3,0]],-1,0,[0,0,0],0],[3,[1,22.6],8,['p',[-1,0],[0,1],[0,-1]],['p',[8,0],[7,0]],0,0,[0,0,0],2],[3,[1,22.6],9,['p',[1,0],[0,1],[0,-1]],['p',[8,0],[9,0]],0,0,[0,0,0],2],[4,[2,1],10,['p',[-1,0],[0,1],[0,-1]],['p',[7.5,0],[8,0]],0,0,[0,0,0],4],[4,[2,1],0,['p',[1,0],[0,1],[0,-1]],['p',[8.5,0],[8,0]],0,0,[0,0,0],4],[4,[2,3],0,['p',[-1,0],[0,1],[1,0],[0,-1]],['p',[8,0],[8,-11]],0,0,[0,0,0],4],static(addtr(alley(0,-2,3,0.6,5.1),[0,8]),[1,36.5,13]),[4,[2,3],0,icicle(0.5),['p',[0,8],[11,8]],0,0,[0,0,0],8],Spin(alley(0,-2,3,0.6,5.1),[0,8],pi/2,1),static(['c',[11,11],[1,0]],[1,36.5,15]),static(['c',[11,11],[1,0]],[2,2,12]),[4,[2,1],5,rect(0,-6,1,-10),['p',[10,0],[3,0]],-1,0,[0,0,0],-1]]}
-function D18(){return [swing(Ci(0.6,-4,10),-20,1),swing(Ci(0.6,-2,10),-20,1),swing(Ci(0.6,0,10),-20,1),swing(Ci(0.6,2,10),-20,1),swing(Ci(0.6,4,10),-20,1),rotate(ci(0.4),[0,0],5,0,6),rotate(ci(0.4),[0,0],5,2*pi/3,6),rotate(ci(0.4),[0,0],5,4*pi/3,6),[4,[0,0],1,ci(1.5),['p',[9.7,-11.5],[9.5,10],[9.5,-11.5]],0,0,[0,0,0],1],[4,[0,0],1,rect(-10,-10,10,10),['p',[0,41.5],[0,-1.5]],0,0,[0,0,0],1]]}
-function D19(){return [spin(alley(0,0,2,1,3),[-3,6],pi),rotate(ci(0.5),[6,6],1.42,0,4),rotate(ci(0.5),[6,6],1.42,pi/2,4),rotate(ci(0.5),[6,6],1.42,pi,4),rotate(ci(0.5),[6,6],1.42,-pi/2,4),static(rect(4,3,8,2),[1,16.4,11]),static(rect(4,2,8,1),[1,17.4,12]),static(rect(4,1,8,0),[1,18.4,13]),static(rect(4,0,8,-1),[1,19.4,14]),static(rect(4,-1,8,-2),[1,20.4,15]),Gate(rect(4,3,8,2),-3),Gate(rect(4,2,8,1),-5),Gate(rect(4,1,8,0),-7),Gate(rect(4,0,8,-1),-9),Gate(rect(4,-1,8,-2),-11),rotate(rect(-1.5,1.5,1.5,0),[1.5,-5.75],0.75,0,2.5),rotate(rect(-1.5,1.5,1.5,0),[1.5,-8.25],0.75,pi,2.5),static(Ci(1,11,11),[1,35,19]),[0,[2,2],20,ci(0.01),Ci(0,-5,-6),0,0,[1,49,1],0],rail(ci(0.5),[-5,-6],0,2),[0,[5,1],22,ci(0.3),Ci(0,-9.5,0),0,0,[0,0,0],0],rail(spike(1/4),[-9.5,0],4,4)]}
-function D20(){return [static(['p',[-10,10],[10,10],[10,6],[8,8],[-8,8],[-10,6]],[0,0,1]),static(['p',[-10,-10],[10,-10],[10,-6],[8,-8],[-8,-8],[-10,-6]],[0,0,1]),[4,[5,2],7,ci(0.4),['p',[-8,8],[8,8],[8,-8],[-8,-8]],0,0,[0,0,0],0],[4,[5,2],7,ci(0.4),['p',[-8,8],[8,8],[8,-8],[-8,-8]],16,0,[0,0,0],0],[4,[5,2],7,ci(0.4),['p',[-8,8],[8,8],[8,-8],[-8,-8]],32,0,[0,0,0],0],[4,[5,2],7,ci(0.4),['p',[-8,8],[8,8],[8,-8],[-8,-8]],48,0,[0,0,0],0],[1,[2,10],0,icicle(0.4),['p',[-8,8],[8,8],[8,-8],[-8,-8]],-1,4,[0,0,0],4],static(ci(0.5),[1,9,9]),[0,[2,1],22,ci(0.5),dm,0,0,[1,6,0.5],0],gate(ci(2),-5),[4,[1,12.3],0,cross([-0.2,3]),['p',[6,11],[3,0]],0,0,[2,-pi/2,inf],12],static(Ci(1,11,11),[1,10,13]),expand(rect(-2,0,2,-1),[1,13.5,15],[6,0],1),[4,[6,14,16,3,16],18,rect(4,1,8,0),['p',[0,0],[0,3]],0,0,[0,0,0],1],[4,[6,14,16,3,17],19,rect(4,-1,8,0),['p',[0,0],[0,-3]],0,0,[0,0,0],1],static(rect(4,4,8,3),[0,0,1]),static(rect(4,-4,8,-3),[0,0,1]),gate1(rect(4,1,8,0),-5,3),gate1(rect(4,-1,8,0),-5,-3),[0,[1,5],21,icicle(0.5),Ci(0,-5,8),0,-pi/2,[0,0,0],0],[4,[0,0],1,icicle(0.5),['p',[-5,8],[-5,-7]],0,-pi/2,[0,0,0],80],static(ci(2),[1,7.9,10]),static(Ci(1,11,11),[1,10,11]),static(Ci(1,11,11),[1,10,25]),expand(rect(-2,0,2,1),[1,13.5,14],[6,0],1),expand(ci(1),[5,1,27],[7,9],1),rail(ci(0.5),[7,9],-pi/2,4)]}
-function D21(){return [static(rect(-5,10,-4,6),[1,11.8,3]),static(rect(5,10,4,6),[1,66.8,4]),gate(rect(-5,10,-4,6),-2.3),gate(rect(5,10,4,6),-2.3),Swing(['p',[0,0.5],[0,-0.5],[-2.5,0]],-7.5,1),Swing(['p',[0,0.5],[0,-0.5],[2.5,0]],7.5,1),swing(['p',[-6,-8],[-5,-8],[-5.5,-7]],1,1),swing(['p',[-6,-8],[-5,-8],[-5.5,-9]],-1,1),swing(['p',[6,-8],[5,-8],[5.5,-7]],1,1),swing(['p',[6,-8],[5,-8],[5.5,-9]],-1,1),[2,[1,72],13,ci(0.5),Ci(2,0,-8),0,0,[0,0,0],pi],[2,[1,72],13,ci(0.5),Ci(2,0,-8),pi,0,[0,0,0],pi],[0,[0,0],1,ci(0.5),Ci(2,0,-8),-1,0,[0,0,0],0],static(rect(-3,6,0,5),[1,73.7,16]),static(rect(3,6,0,5),[1,73.7,17]),Gate(rect(-3,6,0,5),-3),Gate(rect(3,6,0,5),3),static(Ci(0.4,0,10),[5,2,19]),rail(icicle(0.4),[0,10],-pi/2,2)]}
-function D22(){return [swing(['p',[-8,12.5],[-6,8.5],[-4,12.5],[-2,8.5],[0,12.5],[2,8.5],[4,12.5],[6,8.5],[8,12.5]],-2,1),[3,[2,1],3,ci(0.02),['p',[7,0],[9,0]],-1,0,[1,99,1],1.3],[3,[2,1],2,ci(2),['p',[7,0],[9,0]],-1,0,[1,-0.99,1],1.3],static(Ci(1,11,11),[2,0,2]),static(Ci(0.5,-9.5,-8),[5,2,7]),static(Ci(0.5,-9.5,-8),[5,2,8]),[2,[2,8],0,ci(0.4),Ci(1,-9.5,-8),0,0,[3,3,8],pi],[2,[2,8],0,ci(0.4),Ci(1,-9.5,-8),pi,0,[3,3,8],pi]]}
-function D23(){return [static(rect(-0.5,1,0.5,-3),[1,12.3,2]),gate(rect(-0.5,1,0.5,-3),-2.3),[0,[2,0],3,gun(0.6),Ci(0,-9.4,-9.4),0,4,[0,0,0],0],static(Ci(0,-9.4,-9.4),[5,2*Math.random(),5]),rail(spike(1/4),[-9.4,-9.4],4,4),[3,[5,2*Math.random()],7,ci(0.3),['p',[-7,-9],[7,-9]],0,0,[0,0,0],2],[1,[2,5],0,spike(1/4),['p',[-7,-9],[7,-9]],-1,pi/2,[0,0,0],4],static(rect(-2.5,-1,-1.5,-5),[1,8.3,9]),gate(rect(-2.5,-1,-1.5,-5),2.3),static(rect(2.5,-1,1.5,3),[1,16.3,11]),gate(rect(2.5,-1,1.5,3),2.3)]}
-function D24(){var x=rect(1,-0.2,-1,0.2);return [swing(rect(-10,1,10,10),9,4),[3,[5,1],4,ci(0.2),['p',[-9,9],[9,9]],0,0,[0,0,0],3],[3,[5,1],4,ci(0.2),['p',[-9,9],[9,9]],18,0,[0,0,0],-3],[1,[2,5],0,x,['p',[-9,9],[9,9]],-1,-pi/2,[0,0,0],4],static(Ci(0.2,0,9),[5,2,10]),static(Ci(0.2,0,9),[5,2,11]),static(Ci(0.2,0,9),[5,2,12]),static(Ci(0.2,0,9),[5,2,13]),static(Ci(0.2,0,9),[5,2,14]),rail(x,[0,9],4,4),rail(x,[0,9],4+pi/8,4),rail(x,[0,9],4+pi/4,4),rail(x,[0,9],4+7*pi/4,4),rail(x,[0,9],4+15*pi/8,4)]}
-function D25(){return [swing(['p',[-6,10],[-6,1],[-5,-1],[-4,1],[-3,-1],[-2,1],[-1,-1],[0,1],[1,-1],[2,1],[3,-1],[4,1],[5,-1],[6,1],[6,10]],2,4),swing(['p',[-6,-12],[-6,-1],[-5,-3],[-4,-1],[-3,-3],[-2,-1],[-1,-3],[0,-1],[1,-3],[2,-1],[3,-3],[4,-1],[5,-3],[6,-1],[6,-12]],2,4),spin(cross([-0.2,1]),[9,9],pi),static(Ci(1,11,11),[5,2,9]),static(Ci(1,11,11),[5,2,10]),static(Ci(1,11,11),[5,2,11]),static(Ci(1,11,11),[5,2,12]),static(Ci(1,11,11),[5,2,13]),rail(icicle(0.4),[9,9],4+pi/8,4),rail(icicle(0.4),[9,9],4+pi/16,4),rail(icicle(0.4),[9,9],4,4),rail(icicle(0.4),[9,9],4+15*pi/8,4),rail(icicle(0.4),[9,9],4+31+pi/16,4)]}
-function D26(){return [[0,[1,1.6],0,['p',[2,0],[0,2],[-2,0],[0,-2],[2,0],[2.2,0],[0,-2.2],[-2.2,0],[0,2.2],[2.2,0]],Ci(0,-8,0),0,0,[2,pi/2,inf],0],swing(rect(-1,-5.2,-2,-1.2),6.4,2),swing(rect(1,5.2,0,1.2),-6.4,2),rotate(ci(0.4),[5,0],max(0,2-abs(pla1-13)),0,2),rotate(ci(0.4),[5,0],max(0,2-abs(pla1-13)),pi,2),rail(rect(-20,10,10,-10),[-23,0],0,3)]}
-function rdm(x,y){return (y-x)*Math.random()+x}
-function A27(x){return addtr(rottr(rect(0.5,0.5,-0.5,-0.5),A27r[x]),[A27r[x+1],A27r[x+2]])}
-function D27(){return [static(A27(0),[0,0,1]),static(A27(3),[0,0,1]),static(A27(6),[0,0,1]),[3,[5,2],5,ci(0.5),['p',[8,8],[-8,8]],0,0,[0,0,0],4],[1,[2,5],0,rect(-0.5,4,0.5,-4),['p',[8,8],[-8,8]],-1,-pi/2,[0,0,0],4],static(Ci(0.5,5,0),[1,12.3,7]),[0,[2,2],8,ci(0.5),Ci(0,5,0),0,0,[1,3,1],0],gate(Ci(2,5,0),5),static(Ci(1,11,11),[1,9.5,10]),expand(rect(1,-7,-1,7),[2,2,11],[5,5],1),spin(rect(1,-7,-1,7),[5,5],pi/3)]}
+#define ice_color vec4(.3,.6,.9,.8)
+#define obj_color vec4(0,0,0,1)
+#define shade_color vec4(0.8,0.8,0.8,1)
 
-function A283(x){return static(Ci(1,11,11),[1,2*x+1,x+9])}
-function A284(x,y){return gate2(y,2*x-7,-61,3)}
-function D28(){
-var A281=['p',[0,10],[1,10],[1,51],[0,51],[0,31],[-20,31],[-20,30],[0,30]]
-var A282=['p',[1,10],[0,10],[0,51],[1,51],[1,31],[20,31],[20,30],[1,30]]
-return [A283(0),A283(1),A283(2),A283(3),A283(4),A283(5),A283(6),A283(7),A284(0,A281),A284(1,A281),A284(2,A282),A284(3,A281),A284(4,A282),A284(5,A282),A284(6,A281),A284(7,A281),static(rect(8.5,1,9.5,-1),[1,16.3,18]),gate2(rect(8.5,1,9.5,-1),0,1.3,3)]}
+vec4 col_one_layer(vec2 p){
+if(abs(sdf_box(p,goal,.1))<=0.01)return vec4(1,0,0,1); //goal
+float sw=0.0;vec4 C=vec4(1);bool b0=false;
+bool b=false;for(float n=0.;n<tsize*tsize;n++){vec4 v1=tex(n),v2=tex(n+1.);if(v1.w+v2.w<1.8)break; //end o' input
+float s=v1.x,e=v2.x-1.; //Start 'n' End Pos o' 0bject
+vec4 S=tex(s+1.);vec4 M=tex(v2.x-1.);//Marker
+float t=M.y==1.0?M.x:0.0;
+if(inObj(p,s,e)){if(S.z==0.25){sw+=1.0-tex(s+2.).y;}else{b0=true;C=S.z==.5?vec4(1,0,0,1):S.w==1.0?obj_color:ice_color;C=mix(C,vec4(1),t);break;}} //nodes or objects or SlidyIce or shockwaves
+if(M.y!=1.0&&inShade(p,s,e))b=true;
+}
+return mix(vec4(.2,.2,.2,1),b0?C:b?shade_color:vec4(1),clamp(1.0-sw,0.,1.));
+}
+int pla_in_obj(vec2 p){bool inIce=false;for(float n=0.;n<tsize*tsize;n++){vec4 v1=tex(n),v2=tex(n+1.);if(v1.w+v2.w<1.8)break; //end o' input
+float s=v1.x,e=v2.x-1.; //Start 'n' End Pos o' 0bject
+vec4 S=tex(s+1.);vec4 M=tex(v2.x-1.);
+if(M.y!=1.0 && inObj(p,s,e)){if(S.w==1.0 && (S.z==0.0||S.z==1.0))return 1;if(S.w==0.25)inIce=true;}}
+return inIce?2:0;}
 
-function D29(){return [[0,[1,4.4],0,cross([0.2,2.5]),Ci(0,-5,0),0,0,[2,pi/3,inf],0],static(ds,[1,3,3]),[4,[2,5],0,rect(0,10,20,-10),['p',[20,0],[-9.5,0],[20,0]],0,0,[0,0,0],20],static(ds,[1,12,6]),static(ds,[1,12,7]),[4,[2,6],0,rect(-20,0,0,0.5),['p',[0,10],[0,0.5],[-20,-29.5]],0,0,[0,0,0],4],[4,[2,6],0,rect(20,0,0,0.5),['p',[0,10],[0,0.5],[20,-29.5]],0,0,[0,0,0],4],static(ds,[1,14,11]),static(ds,[1,14,12]),static(ds,[1,14,13]),[4,[1,14.8],14,rect(0,10,0.5,-10),['p',[5,20],[5,0]],0,0,[0,0,0],20],[4,[1,15.8],16,rect(0,10,0.5,-10),['p',[6,20],[6,0]],0,0,[0,0,0],20],[4,[1,16.8],17,rect(0,10,0.5,-10),['p',[7,20],[7,0]],0,0,[0,0,0],20],gate2(rect(0,10,0.5,-10),5,10.3,2),[0,[3,0.05,1],18,ds,dm,0,0,[0,0,0],0],gate2(rect(0,10,0.5,-10),6,-10.3,2),gate2(rect(0,10,0.5,-10),7,10.3,2),rail(rect(-1,-1,1,1),[-14,0],0,3)]}
-function D30(){
-var A302=[12,-8,14,-6,16,-4,18,-2,20,0,22,2,24,4,26,6,28,8,30,10,32,12]
-var A301=[-29,-9,-29,-7,-27,-5,-25,-3,-23,-1,-21,1,-19,3,-17,5,-15,7,-13,9]
-return [static(ds,[5,1,3]),static(ds,[5,1,6]),rail(rect(0.5,0.5,-0.5,-0.5),[11,1],pi,2),[4,[0,0],1,rect(-1,10,0,-10),['p'].concat(A301.map((i)=>[i,0])),0,0,[0,0,0],18],[4,[0,0],1,rect(1,10,0,-10),['p'].concat(A302.map((i)=>[i-0.5,0])),0,0,[0,0,0],18],rail(rect(0.5,0.5,-0.5,-0.5),[11,-1],pi,2)]}
-function D31(){return [[4,[0,0],1,['p',[2,-2],[2,2],[-2,2],[-2,-2],[2,-2],[20,-20],[-20,-20],[-20,20],[20,20],[20,-20]],['p'].concat(T31),0,0,[0,0,0],2],static(ds,[5,2,4]),static(ds,[5,2,5]),rail(icicle(0.4),[-9,9],4,4),rail(icicle(0.4),[9,-9],4,4),swing(Ci(0.5,-2,-2),4,1),swing(Ci(0.5,0,-2),4,1.9),swing(Ci(0.5,2,-2),4,2.8),static(rect(-6,-8.5,-5,-7.5),[1,2.8,11]),static(rect(5,7.5,6,8.5),[1,29.8,12]),gate(rect(-6,-8.5,-5,-7.5),0.8),gate(rect(5,7.5,6,8.5),-0.8)]}
-function D32(){var A32=(x,z)=>[static(ds,[1,A32r[z]+3,x]),rail(icicle(0.4),[A32r[z]-6,-2],pi/2,4)];return [static(rect(-10,-0.3,10,-10),[0,0,1]),static(ds,[5,2,4]),static(ds,[5,2,5]),rail(icicle(0.4),[-9,-9],4,4),rail(icicle(0.4),[9,-9],4,4),static(Ci(0.5,0,5),[0,0,1])].concat(A32(8,0),A32(10,1),A32(12,2),A32(14,3),A32(16,4),A32(18,5),A32(20,6),A32(22,7),A32(24,8),A32(26,9))}
-function D33(){return [static(Ci(0.5,10,-1),[5,rdm(2,3),2]),[4,[2,6],0,rect(-0.2,1,0.2,-1),['p',[10,-1],[-12,-1]],0,pi,[2,pi,inf],4],spin1(spike(0.5),[0,0],abs(2*((a/3)%1)-1)*1.5,pi/3,0),spin1(spike(0.5),[0,0],abs(2*((a/3)%1)-1)*1.5,pi/3,2*pi/3),spin1(spike(0.5),[0,0],abs(2*((a/3)%1)-1)*1.5,pi/3,-2*pi/3)]}
-function D34(){var A34=(x)=>spin(rect(2,x,-2,x+1),[0,0],2*pi/(x>0?x:-x-1))
-return [-9,-7,-5,-3,2,4,6,8].map(A34).concat([[0,[1,9],0,cross([0.2,2]),dm,0,0,[2,abs(pla1-10),inf],0],static(Ci(0.5,0,9),[5,2,12]),static(Ci(0.5,0,-9),[5,2,13]),rail(icicle(0.4),[0,9],4,4),rail(icicle(0.4),[0,-9],4,4)])}
-function D35(){return [[4,[5,2],2,ds,['p',[-10,0],[9,0]],'p',0,[0,0,0],0],[1,[2,3],3,spike(0.5),['p',[-10,12],[9,12]],-1,-pi/2,[0,0,0],4,true],[1,[0,0],3,spike(0.5),['p',[-10,0],[9,0]],-1,-pi/2,[0,0,0],0],static(Ci(1,10,10),[5,2,6]),static(Ci(1,10,-10),[5,2,7]),rail(rect(-5,0.2,0,-0.2),[10,10],4,5),rail(rect(-5,0.2,0,-0.2),[10,-10],4,5),[3,[0,0],1,Ci(0.5,0,-1),['p',[0,0],[0,2]],0,0,[0,0,0],1+(a%2)],[3,[0,0],1,Ci(0.5,-1.5,-1),['p',[0,0],[0,2]],0,0,[0,0,0],1+(a%2)],[3,[0,0],1,Ci(0.5,1.5,-1),['p',[0,0],[0,2]],0,0,[0,0,0],1+(a%2)],[3,[0,0],1,cross([0.2,3]),['p',[-5,-5],[-5,5]],5,0,[2,pi/4,inf],3],[3,[0,0],1,cross([0.2,3]),['p',[5,-5],[5,5]],5,0,[2,pi/4,inf],-3]]}
-function D36(){var A36=(x)=>static(Ci(0.5,9,-9),[5,x/2,13]);A361=['p',[-5,1],[-8,-5],[-2,-5]];A362=['p',[4.5,1],[5,2],[5.3,1.4]];A363=['p',[8.4,-4.8],[1.6,-4.8],[0,-8],[10,-8]]
-return [static(A361,[1,4.3,2]),gate2(A361,0,-1.25,3),static(A362,[1,10,4]),[4,[2,10],0,A362,['p',[0,0],[-5,-1.5],[-20,-1.5]],0,0,[0,0,0],4],static(['p',[4.5,1],[5.3,1.4],[8.4,-4.8],[1.6,-4.8]],[0,0,1]),static(A363,[1,16.3,7]),gate(A363,-0.6),A36(3),A36(5),A36(7),A36(11),A36(13),rail(spike(0.5),[9,-9],4,4)]}
-function D37(){var A37=()=>[3,[5,0.2],6,ds,['p',[-9,4],[9,4]],0,0,[0,0,0],rdm(18,54)]
-var A371=(x)=>spin1(['p',[0,0.3],[3,0],[0,-0.3]],[5,-1],0,-pi/3,x)
-return [static(rect(-10,10,10,4),[0,0,1]),static(rect(-10,-10,10,-0.25),[0,0,1]),A37(),A37(),A37(),[1,[2,2],0,rect(-2,0.1,0,-0.1),['p',[-9,4],[9,4]],-1,-pi/2,[0,0,0],6],static(ds,[5,10,8]),[3,[5,20],0,ci(0.5),Ci((a%1)*(a%2<1?1:-1)+(a%2<1?0:1),11,0),0,0,[3,-3,inf],pi/2],static(ds,[2,7,10]),rail(['p',[0,0],[-10,10],[-10,9],[-1,0],[-10,-9],[-10,-10]],[-10,0],0,20),A371(0),A371(2*pi/3),A371(-2*pi/3)]}
+float distmap(vec2 p,vec2 d){float D=1e10;for(float n=0.;n<tsize*tsize;n++){vec4 v1=tex(n),v2=tex(n+1.);if(v1.w+v2.w<1.8)break; //wtf
+float s=v1.x,e=v2.x-1.; //Start 'n' End Pos o' 0bject
+vec4 S=tex(s+1.);vec4 M=tex(v2.x-1.);
+if(M.y!=1.0){D=min(D,ints_d_obj(p,d,s,e));}}
+return D;}
 
+bool inPortal(vec2 p,vec4 c){p=zoom_out(p);return sdf_box(p,vec2(0),10.)<=0. && (c!=vec4(0,0,0,1));}
+
+#define maxiter 10
+#if 0
+vec4 col(vec2 p){if(portal.z<=0.)return col_one_layer(p); //THIS IS [maxiter]x SLOWER WITH LARGE PORTALS
+bool in_light=false,in_ice=false;
+for(int i=0;i<maxiter && sdf_box(p,vec2(0),10.)<=0.;i++){vec4 c=col_one_layer(p);
+if(c==vec4(1)){in_light=true;}else if(c==ice_color){in_ice=true;}else if(!(c==shade_color)){return c;}
+p=zoom_out(p);}
+return in_light?vec4(1):in_ice?ice_color:shade_color;
+}
+#else
+vec4 col(vec2 p){vec4 c=col_one_layer(p);if(portal.z<=0.)return c;
+if(inPortal(p,c))return texture(t_img,(zoom_out(p)+10.)/20.);
+return c;}
+#endif
+
+${perlinNoise(300)}
+
+#if 0
+float c_rain(vec2 p){ //literally just layers and layers of RainSheets
+vec2 q=p/20.0+0.5;float d=1.0;float C=0.;
+for(int i=0;i<5;i++){float f=pow(d,.45)+.25;
+vec2 st=f*(q*vec2(1.5,.05)+vec2(-iTime*.1+q.y*.5,iTime*.12));
+f=noise(st*.5)+noise(st*.28);
+f=clamp(pow(f*.45,29.0)*140.0,0.0,q.y*.4+.05);
+C+=f;
+d+=3.5;}
+return clamp(C,0.,1.);}
+#else
+float c_rain(vec2 p){return 0.0;}
+#endif
+
+#if 0
+float c_light(vec2 p,vec4 c){return portal.z>0.&&inPortal(p,c)?1.:1./(2.+length(pos-pla));}//dark mode
+#else
+float c_light(vec2 p,vec4 c){return 1.0;}
+#endif
+
+vec4 g_anim_fade(vec4 c){float x=clamp(g_anim-1.0,0.0,1.0);return mix(c,vec4(1),x);}
+
+void main1(){
+float d_pla=1e3;
+vec2 p=pos*vs*0.1+clamp(pla,vec2(-10.+vs),vec2(10.-vs));float s=sdf_box(p,pla,.1+g_anim);if(gstate==2.)s=abs(s)-0.03;d_pla=s;
+vec4 c=col(p);float r=c_rain(p);float l=c_light(p,c);c.xyz-=vec3(r);c.xyz*=l;
+d_pla=clamp(1.0-100.*d_pla,0.,1.);
+FragColor=g_anim_fade(mix(vec4(c.xyz,c.w-0.5*r),vec4(1,0,0,1),d_pla*max(1.-g_anim,0.)));
+if(blur>0.)FragColor=mix(texture(t_img,gl_FragCoord.xy/vec2(${ca.width},${ca.height})),FragColor,1.0/(blur+1.));
+}
+//player hitobj detect - a single pixel made the game ULTRA LAGGY
+void main2(){vec2 h=vec2(0,0.1);
+int c1=pla_in_obj(pla+h),c2=pla_in_obj(pla-h);
+if(c1==1||c2==1){FragColor=vec4(.1,0,0,.1);}
+else if(c1==2||c2==2){FragColor=vec4(.1,0,.1,.1);}
+else{FragColor=vec4(0,0,0,.1);}
+}
+//create a LightMap
+void main3(){float a=6.283*gl_FragCoord.x/res.x;float d=distmap(pla,vec2(cos(a),sin(a)));d/=30.;FragColor=vec4(d,d,d,1);}
+
+void main(){if(isFB>.5){FragColor=texture(t_img,gl_FragCoord.xy/vec2(${ca.width},${ca.height}));}else if(gl_FragCoord.y==.5){if(gl_FragCoord.x==.5){main2();}else if(${useLightMap}>0){main3();}}else{main1();}} //plaInObj is too slow
+`
+//init the shaders
+gl.shaderSource(vs,gl_ver+vsource);gl.shaderSource(fs,gl_ver+'precision highp float;precision highp sampler2D;out vec4 FragColor;\n'+fsource);gl.compileShader(vs);gl.compileShader(fs)
+gl.attachShader(pr0,vs);gl.attachShader(pr0,fs);gl.linkProgram(pr0);gl.useProgram(pr0)
+gl.bindBuffer(gl.ARRAY_BUFFER,buf)
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([1,1,1,-1,-1,-1,-1,-1,1,1,-1,1]),gl.STATIC_DRAW)
+gl.enableVertexAttribArray(0)
+gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0)
+gl.viewport(0,0,ca.width,ca.height)
+function render(){gl.drawArrays(gl.TRIANGLES,0,6)}
+function setunif(u,n,x){gl['uniform'+n+(n-1?'fv':'f')](gl.getUniformLocation(pr0,u),x)}
+//textures(Aw Fvcks,i don‘t wanna deal w/ it anymore！！！)
+function load_tex(i,t,x=0){gl.activeTexture(gl['TEXTURE'+i]);gl.bindTexture(gl.TEXTURE_2D,t);if(!x)return;gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST)}
+var tex=gl.createTexture();load_tex(0,tex,1)
+var texdata=new Float32Array(tsize*tsize*4)
+function loadData(d=texdata){load_tex(0,tex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,tsize,tsize,0,gl.RGBA,gl.FLOAT,d)}
+//fkkin' ping-pong things. I DON’T WANNA DEAL W/ IT ANYMOR
+function createFB(){let t=gl.createTexture();
+load_tex(1,t,1);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,ca.width,ca.height,0,gl.RGBA,gl.UNSIGNED_BYTE,null)
+let fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);return {fb:fb,texture:t}}
+function bindFB(f){gl.bindFramebuffer(gl.FRAMEBUFFER,f&&f.fb);gl.viewport(0,0,ca.width,ca.height)}
+var fb1=createFB(),fb2=createFB()
+
+
+function logshader(){let v=gl.getShaderInfoLog(vs),f=gl.getShaderInfoLog(fs);if(v.length+f.length>0){let x=document.createElement('div');x.innerHTML=(v.length?'vertex shader fcked u up - '+v+'<br>':'')+(f.length?'fragment shader fcked u up - '+f+'<br>':'');document.body.appendChild(x)}}
+
+
+//utils - point
+var cos=Math.cos,sin=Math.sin,floor=Math.floor,mod=(x,y)=>x-y*floor(x/y),abs=Math.abs,max=Math.max,min=Math.min
+var sgn=x=>x>0?1:-1
+var round=(x,a=1,b=0)=>a*Math.round((x-b)/a)+b //rounds x to \{ak+b|k\in\mathbb{Z}\}
+var cbrt=(x)=>x>0?x**(1/3):x<0?-Math.pow(-x,1/3):0
+var clamp=(x,a,b)=>x>b?b:x<a?a:x
+var inSeg=(x,a,b)=>a<=x&&x<=b
+var PI=Math.PI
+class pn{
+constructor(x=0,y=0,t=0){this.x=t?x*cos(y):x;this.y=t?x*sin(y):y;this.isPoint=1}
+add(x){return new pn(this.x+x.x,this.y+x.y)}
+subt(x){return new pn(this.x-x.x,this.y-x.y)}
+mult(x){return new pn(this.x*x,this.y*x)}
+div(x){return new pn(this.x/x,this.y/x)}
+rot(t,c={x:0,y:0}){let x=this.x-c.x,y=this.y-c.y;return new pn(x*cos(t)-y*sin(t),x*sin(t)+y*cos(t)).add(c)}
+dist(x){return Math.sqrt((this.x-x.x)**2+(this.y-x.y)**2)}
+norm(d=1){return this.mult(d/(this.dist(new pn(0,0))||1))}
+cmult(x){return new pn(this.x*x.x-this.y*x.y,this.x*x.y+this.y*x.x)}
+rotTo(x){return this.cmult(x.norm())}
+set(x){this.x=x.x;this.y=x.y}
+clamp(a,b){return new pn(clamp(this.x,a,b),clamp(this.y,a,b))}
+dot(x){return this.x*x.x+this.y*x.y;}
+dot2(){return this.dot(this)}
+}
+var mix=(x,y,t)=>x.mult(1-t).add(y.mult(t))
+var mixf=(x,y,t)=>(1-t)*x+t*y
+var sdf_box=(p,c,r)=>max(abs(p.x-c.x),abs(p.y-c.y))-r
+var rdm=()=>Math.random(),rdmRange=(x,y)=>x+(y-x)*rdm(),rdmRect=(x1,y1,x2,y2)=>new pn(rdmRange(x1,x2),rdmRange(y1,y2))
+var list=(x,y,n)=>Array.from({length:n},(i,j)=>x+y*j)
+function root2(a,b,c){if(a==0)return [-c/b,-c/b];let d=(b*b-4*a*c)**0.5;return [(-b+d)*0.5/a,(-b-d)*0.5/a]}//ax^2+bx+c=0
+
+//Describbin' the Shappes
+var tr=x=>(1+x/(abs(x)+1))/2
+var toPoint=(x)=>x.isPoint?new pn(x.x,x.y):new pn(...x)
+function shape(v,t=0){return {vert:v.map(toPoint),type:t}}
+var point_tr=(i,p)=>i.mult(p.size).rotTo(p.dir).add(p.pos)
+function circ(s,p={pos:[0,0],dir:[1,0],size:1}){if(s.type==1)return 2*PI*p.size*s.vert[1].x;
+let d=0;for(let i=0;i<s.vert.length-1;i++)d+=s.vert[i].dist(s.vert[i+1]);return d*p.size}
+var circ_c=(s,p)=>circ(shape([...s.vert,s.vert[0]],s.type),p)
+function vert(s,p){return s.type==0?s.vert.map(i=>point_tr(i,p)):[point_tr(s.vert[0],p),new pn(s.vert[1].x*p.size,s.vert[1].y)]}
+function shapeData(s,p,X=1){return vert(s,p).flatMap(i=>[i.x,i.y,s.type,X])}
+var shape_tr=(s,p)=>shape(vert(s,p),s.type)
+function getBound(v){if(v[0][2]==1)return [v[0][0]-v[1][0],v[0][0]+v[1][0],v[0][1]-v[1][0],v[0][1]+v[1][0]];
+let x1=y1=1/0,x2=y2=-1/0;for(let i in v){x1=min(x1,v[i][0]);x2=max(x2,v[i][0]);y1=min(y1,v[i][1]);y2=max(y2,v[i][1])};return [x1,x2,y1,y2]} //[xmin,xmax,ymin,ymax]
+
+//trail shapes
+function trail(s,t,p){p=p||({pos:new pn(0,0),dir:new pn(1,0),size:1});
+if(s.type==1){return point_tr(new pn(s.vert[1].x,(s.vert[1].y||1)*t/(s.vert[1].x||1),1).add(s.vert[0]),p)}
+let v=vert(s,p),d=v.map((_,i)=>v[i].dist(v[(i+1)%v.length]));for(let i=0;i<v.length;i++){t-=d[i];if(t<=0){return mix(v[i],v[mod(i+1,v.length)],t/d[i]+1)}};return v[0]
+}
+
+//anim
+var dt=0.05
+pn.prototype.advect=function(d,v){d=toPoint(d);if(v){d=d.norm(v)};this.set(this.add(d.mult(dt)))}
+var emptyfunc=function(){}
+var func=(f,...x)=>(typeof(f))[0]=='f'?f(...x):f
+function a_data(d,s=1,r=0,a=0,n=1,st=0,f=emptyfunc,fe=emptyfunc){return {dur:d,speed:s,rep:r,auto:a,num:n,fn:f,onend:fe,startTime:st}}
+function animInit(d){return {data:d,time:d.startTime,start:d.auto,num:0}} //no onstart yet XD
+function anim(a,p){let d=a.data;if(!a.start)return 'wtf';if(a.num>=d.num){return d.rep==1&&(a.time=0)}
+a.time+=dt*(a.num%1?-1:1)*func(d.speed,a.time);if(a.time>=d.dur){if(d.rep==0){a.time=d.dur;a.num=d.num};if(d.rep==1){a.num++;a.time=a.num>=d.num?0:a.time%d.dur};if(d.rep==2&&a.num%1==0){a.time=d.dur;a.num+=0.5}}
+if(a.time<0&&d.rep==2&&a.num%1!=0){a.time=0;a.num+=0.5}
+if(a.num>=d.num)d.onend(p)
+d.fn(a.time,p,a.num)}
+var e_anim=a_data(1)
+
+
+//event
+var f_true=()=>1
+function e_data(f,c=f_true,n=1/0){return {fn:f,check:c,num:n,reset:emptyfunc}}
+function evtInit(d){return {data:d,num:0,t:0}}
+function evt(e,p){let d=e.data;if(e.num<d.num&&d.check(p,e)){d.fn(p,e);e.num++}}
+var e_evt=e_data(emptyfunc,()=>0,0)//empty event
+function counter(f,i,n,c=f_true){return e_data(f,(p,e)=>((c(p)||e.t>0)&&(e.t+=dt),e.t>=i?(e.t=0,1):0),n)}
+
+//Objects!
+var toArray=(x)=>Array.isArray(x)?x:[x]
+var initpos=(p=[0,0],d=[1,0],s=1)=>(()=>({pos:toPoint(p),dir:toPoint(d),size:s}))
+function o_data(i,s,a,e,p,wi=true){return {id:i,shape:s,anim:toArray(a??e_anim),event:toArray(e??e_evt),param:p??initpos(),willInit:wi}}
+function objInit(d,p){let o={data:d,param:d.param(),anim:d.anim.map(x=>animInit(x)),event:d.event.map(x=>evtInit(x))};if(p){let P=o.param;P.pos.set(p.pos);P.dir.set(p.dir);P.size=p.size};o.param.anim=o.anim;o.param.event=o.event;return o}
+function objUpdate(x){let d=x.data;let p=x.param;x.anim.forEach(y=>anim(y,p));x.event.forEach(y=>evt(y,p))}
+
+//stages
+function s_data(o,p=[-9,0],g=[9,0],n=[],d=0,ice=[],portal=[0,0,0,0],vs=10){return {obj:o,pla:toPoint(p),goal:toPoint(g),node:n.map(toPoint),move_dir:d,ice:ice,portal:portal,vs:vs}}
+var stage={goal:new pn(0,0)};
+function stageInit(d){pla.set(d.pla);d.obj.forEach(x=>x.event.forEach(y=>y.reset()));stage={goal:new pn};stage.obj=d.obj.filter(i=>i.willInit).map(i=>objInit(i))
+stage.goal.set(d.goal);stage.data=d;stage.node=[...d.node];let d1=d.move_dir;move_dir.set(new pn(1,d1*PI/2,1));stage.used_node=stage.node.map(()=>0)
+stage.node_r=stage.node.map(()=>0.1);stage.vs=d.vs
+stage.objToDel=[];stage.sw=[];stage.fadeObj=[]}
+
+//loadstages
+var lv=0,allStagesPassed=0,stages=[]
+var pla_in_ice=0
+var pla_in_obj=0
+function loadStage(x){if(x>=stages.length)return (allStagesPassed='you\'re a big noob lmao');lv=x;stageInit(stages[x]);timeAnim.time=0;pla_in_ice=pla_in_obj=0;pla_dir=0}
+
+//gameplay animations
+var gameAnim=animInit(a_data(3,1,1,1,1,0,t=>(g_anim=t),()=>(loadStage(gstate==2?lv:lv+1),gstate=1)))
+gameAnim.num=1
+var timeAnim=animInit(a_data(1/0,1,1,1,1,0,emptyfunc))
+
+
+//gameloop 'n' playermove
+var pla_v=4,gstate=1,move_dir=new pn(1,0),pla_dir=0,g_anim=0,pla=new pn(0,0)
+var plaInPoint=(x)=>pla.dist(toPoint(x))<pla_v*dt/2
+var tex_pixel=new Uint8Array(4)
+function plaInObj(){gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,tex_pixel);let wtf=tex_pixel;return [wtf[0]>0 && wtf[2]==0, wtf[0]>0 && wtf[2]>0]}
+
+function plaInGoal(){return plaInPoint(stage.goal)}
+function pla_move(){if(pla_dir==0 || gstate!=1)return 'wtf';pla.set(pla.add(move_dir.mult(pla_v*pla_dir*dt)));
+//portal
+let P=stage.data.portal,Ppos=new pn(P[0],P[1]);
+if(P[2]>0&&sdf_box(pla.rot(-P[3],Ppos),Ppos,P[2])<=0){pla.set(pla.subt(Ppos).rot(-P[3]).mult(10/P[2]));move_dir.set(move_dir.rot(-P[3]))}
+else if(P[2]>0&&sdf_box(pla,new pn(0,0),10)>0){pla.set(pla.rot(P[3]).mult(P[2]/10).add(Ppos));move_dir.set(move_dir.rot(P[3]))}
+if(P[2]==0)pla.set(pla.clamp(-10,10))
+//nodes
+for(let i=0;i<stage.node.length;i++){if(stage.used_node[i]==1)continue
+if(pla.dist(stage.node[i])<=pla_v*dt/2)return (pla.set(stage.node[i]),move_dir.set(move_dir.cmult(new pn(0,-1))),stage.used_node[i]=1)
+}}
+
+function stageUpdate(){for(let i=0;i<stage.obj.length;i++){objUpdate(stage.obj[i])};pla_move();if(gstate==1&&pla_in_obj){gstate=2;gameAnim.num=0}if(gstate==1&&plaInGoal()){gstate=3;gameAnim.num=0}
+let d=stage.objToDel;d=d.sort((x,y)=>x-y);for(let i=d.length-1;i>=0;i--){if(d[i]>=0)stage.obj.splice(d[i],1);d.splice(i,1)}
+anim(gameAnim);anim(timeAnim)
+for(let i=stage.sw.length-1;i>=0;i--){stage.sw[i][3]+=dt;if(stage.sw[i][3]>=1)stage.sw.splice(i,1)}
+for(let i=0;i<stage.node.length;i++)stage.node_r[i]=mixf(stage.node_r[i],stage.used_node[i]?0.5:0.1,0.9**(1/dt))
+for(let i=stage.fadeObj.length-1;i>=0;i--){let x=stage.fadeObj[i];x[2]+=dt;if(x[2]>1)stage.fadeObj.splice(i,1)} //arrays of [shape,param,time]
+}
+
+function plaDet(){let wtfwtf=plaInObj();pla_in_obj=wtfwtf[0];pla_in_ice=wtfwtf[1]}
+
+//controls
+document.onkeydown=function(e){let c=e.keyCode;e.preventDefault?.();if(c==37)pla_dir=pla_in_ice?clamp(pla_dir-dt,-1,1):-1;if(c==39)pla_dir=pla_in_ice?clamp(pla_dir+dt,-1,1):1}
+document.onkeyup=function(e){pla_dir=pla_in_ice?pla_dir:0}
+
+//stage utils
+var indexFromId=function(i){for(let j=0;j<stage.obj.length;j++){if(stage.obj[j].data.id==i && !stage.objToDel.includes(j))return j}return -1}
+var fromId=(i)=>stage.obj[indexFromId(i)]
+var dataFromId=(i)=>stage.data.obj.filter(x=>x.id==i)[0]
+function spawn(i,p){let d=dataFromId(i);if(d)stage.obj.push(objInit(d,func(p)))}
+function del(i){stage.objToDel.push(indexFromId(i))}
+function shift(i,ni,p){spawn(ni,p);del(i)}
+var Shift=(i,ni)=>(ni.forEach(x=>spawn(x)),i.forEach(x=>del(x)))
+function spawn_sw(p,r){let x=toPoint(p);stage.sw.push([x.x,x.y,r??1,0])}
+function shift_s(i,ni,r,p){spawn_sw(fromId(i).param.pos,r);shift(i,ni,p)}
+function shift_f(i,ni,p){let o=fromId(i);stage.fadeObj.push([o.data.shape,o.param,0]);shift(i,ni,p)}
+
+
+//shape utils
+var s_seg=(x,y)=>shape([[x,0],[y,0]])
+var s_seg_v=(x,y)=>shape([[0,x],[0,y]])
+var s_rect=(x1,y1,x2,y2)=>shape([[x1,y1],[x1,y2],[x2,y2],[x2,y1]])
+var s_cube=(x,y,r)=>s_rect(x-r,y-r,x+r,y+r)
+var s_circ=(x,y,r,t=1)=>shape([[x,y],[r,t]],1),s_inv=s_circ(0,0,-1)
+var s_cross=(r,w)=>shape([[w,w],[w,r],[-w,r],[-w,w],[-r,w],[-r,-w],[-w,-w],[-w,-r],[w,-r],[w,-w],[r,-w],[r,w]])
+var s_icicle=(x)=>shape([[-x,0],[0,x],[3*x,0],[0,-x]])
+var s_plane=(x)=>shape([[0,0],[-x,-x],[x,0],[-x,x]])
+var s_alley=(x1,y1,x,y,z)=>shape([[x1+x,y1-x],[x1+x,y1+x],[x1-x,y1+x],[x1-x,y1-x],[x1-y,y1-x],[x1-y,y1-x+z],[x1+y,y1-x+z],[x1+y,y1-x]]) //CenterX,CenterY,Radius,InnerRadius,Depth
+var s_spike=(x)=>shape([[0,x],[3*x,0],[0,-x]])
+var s_hollowSquare=(R,r)=>shape([[r,-r],[r,r],[-r,r],[-r,-r],[r,-r],[R,-R],[-R,-R],[-R,R],[R,R],[R,-R]])
+var s_hollowRect=(X1,Y1,X2,Y2,x1,y1,x2,y2)=>shape([[X1,Y1],[X1,Y2],[X2,Y2],[X2,Y1],[X1,Y1],[x1,y1],[x2,y1],[x2,y2],[x1,y2],[x1,y1]])
+var s_star=(x,y,r,n,s=1)=>shape(list(0,1,n).map(i=>new pn(r,2*PI*i*s/n,1).add(new pn(x,y))))
+var s_L=(x,y,rx,ry,w)=>shape([[x,y],[x+rx,y],[x+rx,y+w],[x+w,y+w],[x+w,y+ry],[x,y+ry]])
+var s_L_left=(x,y,rx,ry,w)=>shape([[x,y],[x-rx,y],[x-rx,y+w],[x-w,y+w],[x-w,y+ry],[x,y+ry]])
+var s_C=function(R,r,h,n){let t=2*PI/n,u=h*(cos(t)-1)/sin(t);return shape([[r+u,h],[u+R,h],...list(1,1,n-1).map(i=>new pn(R,i*t,1)),[u+R,-h],[u+r,-h],...list(-1,-1,n-1).map(i=>new pn(r,i*t,1))])} //just a super complicated alley
+
+
+//Remapping Fukktions
+//aka [0,1]\to [0,1] fuctions that make anims more weird
+var m_linear=(t)=>t
+var m_bezier0=function(x1,y1,x2,y2){ //I DONT WANNA SOLVE CUBIC EQUATIONS AAAAHHHHH
+let f=(x)=>x.filter(i=>0<=i&&i<=1)[0]||0
+let g=(x)=>3*(1-x)*(1-x)*x*y1+3*(1-x)*x*x*y2+x**3
+return function(t){
+let a=3*(x1-x2)+1,b=3*x2-6*x1,c=3*x1,d=-t;
+if(a==0&&b==0)return g( -d/c )
+if(a==0){let D=(c*c-4*b*d)**0.5;return g( f([(-c+D)/(2*b),(-c-D)/(2*b)]) )}
+let A=b*b-3*a*c,B=b*c-9*a*d,C=c*c-3*b*d,D=B*B-4*A*C;
+if(D>=0){let y1=A*b+1.5*a*(-B+D**0.5),y2=A*b+1.5*a*(-B-D**0.5);return g( -(b+cbrt(y1)+cbrt(y2))/(3*a) )}
+let k=Math.acos((2*A*b-3*a*B)/(2*A**1.5))/3;return g( f([-cos(k),cos(k+PI/3),cos(k-PI/3)].map(i=>(-b+2*(A**0.5)*i)/(3*a))) )
+}
+}
+var m_bezier=(x1,y1,x2,y2)=>(t=>clamp(m_bezier0(x1,y1,x2,y2)(t),0,1))
+var m_ease=m_bezier(0.25,0.1,0.25,1)
+var m_ease_in=m_bezier(0.42,0,1,1)
+var m_ease_out=m_bezier(0,0,0.58,1)
+var m_ease_in_out=m_bezier(0.42,0,0.58,1)
+var m_pow=(n=2)=>(t=>clamp(t**n,0,1))
+//some Meta Mapfunc
+var m_pause=(x,m=m_linear)=>(t=>min(m(t),x))
+var m_delay=(m,d)=>(t=>m(max(0,t-d)))
+var m_comb=(m1,m2)=>(t=>t>0.5?0.5+0.5*m2(2*t-1):m1(2*t)/2)
+var m_comb2=(m1,m2)=>((t,n)=>n%1?m2(t):m1(t)) //combines 2 mapfuncs but used in AlternativeRepeatingO'Animation
+var m_repeat=(m,n)=>(t=>(floor(n*t)+m(mod(n*t,1)))/n) //it's like tiling tiny mapfuncs in [0,1]
+var m_compress=(m,d,c=0.5)=>(t=>m(clamp((t-c)*d+c,0,1))) //compress the m by d
+
+//some event utils
+var e_dispose=(i,r)=>e_data(()=>shift(i,0),(p)=>sdf_box(p.pos,new pn(0,0),r)>0,1)
+var e_trig=(P,s=[0],e=[])=>e_data(p=>(toArray(s).forEach(i=>(p.anim[i].start=1)),toArray(e).forEach(i=>(p.anim[i].start=0))),()=>plaInPoint(P),1)
+
+
+//Animation Utils
+var t_anim=(s,m,d)=>((t,p,n)=>p.pos.set(trail(s,d*m(t/d,n))))
+var toPla=(p)=>pla.subt(p)
+var a_static=e_anim
+var [a_swing,a_swing_i]=[1,0].map((AutoStart)=>((s,v,m=m_linear,st=0)=>a_data(circ(s),v,2,AutoStart,1/0,st,t_anim(s,m,circ(s)))))
+var [a_spin,a_spin_i]=[1,0].map((AutoStart)=>((s,v,m=m_linear,st=0)=>a_data(circ_c(s),v,1,AutoStart,1/0,st,t_anim(s,m,circ_c(s)))))
+var [a_rotate,a_rotate_i]=[1,0].map((AutoStart)=>((v,m=m_linear,n=1/0,st=0)=>a_data(1,()=>abs(func(v))/(2*PI),1,AutoStart,n,st,(t,p)=>p.dir.set(new pn(1,m(t)*2*PI*sgn(func(v)),1)))))
+var [a_expand,a_expand_i]=[1,0].map((AutoStart)=>((v,m=m_linear,st=0)=>a_data(1,v,2,AutoStart,0.5,st,(t,p)=>(p.size=m(t)))))
+var [a_resize,a_resize_i]=[1,0].map((AutoStart)=>((v,s=0,e=1,xy=m_linear,n=0.5)=>a_data(1,v,2,AutoStart,n,0,(t,p)=>(p.size=mixf(s,e,xy(t))))))
+var [a_rot_offset,a_rot_offset_i]=[1,0].map((AutoStart)=>((v,vspin,d)=>a_data(2*PI,vspin,1,AutoStart,1/0,0,function(t,p){p.dir1||=new pn(p.dir.x,p.dir.y);p.dir.set(new pn(1,t,1));p.pos.advect(d||p.dir1,v)})))
+var [a_rail,a_rail_i]=[1,0].map((AutoStart)=>((v,d,maxDist=1/0,changeDir=1)=>a_data(maxDist,v,0,AutoStart,1,0,function(t,p){let D=d||p.dir;p.pos.advect(D,v);changeDir&&p.dir.set(toPoint(D))})))
+var [a_move,a_move_i]=[1,0].map((AutoStart)=>function(v,sp,m=m_linear,st=[0,0],e=emptyfunc){let s=shape([st,...v]);return a_data(circ(s),sp,0,AutoStart,1,0,t_anim(s,m,circ(s)),e)}) //speed can be a Fukktion
+var [a_fall,a_fall_i]=[1,0].map((AutoStart)=>((g)=>a_data(1,1,1,1,1/0,0,(t,p)=>(p.pos.set(p.pos.add(p.dir.mult(dt))),p.dir.set(p.dir.subt(new pn(0,g*dt)))))))
+
+
+//OBJECT utils!
+var o_noInit=(o)=>({...o,willInit:0})
+var o_lever=(i,s,t,a,pi)=>o_data(i,s,a,e_data((p)=>(p.anim[0].start=1),(p)=>plaInPoint(toPoint(t).add(p.pos)),1),pi)
+var o_counter=(i,s,t,a,pi)=>o_data(i,s,a,counter(p=>(p.anim[0].start=1),t,1),pi)
+var o_tb=(i,s,t,a,pi,ni)=>o_data(i,s,a,counter(()=>shift(i,ni),t,1),pi)
+var o_shoot=(i,s,t,a,pi,ni,d=[1,0],tp=1)=>o_data(i,s,a,counter((p)=>spawn(ni,initpos(p.pos,tp?toPoint(d).rotTo(toPla(p.pos)):toPoint(d),1)),t,1/0),pi)
+
+var o_gate=(i,s,t,d,sp,m)=>o_lever(i,s,t,a_move_i([d],sp,m))
+var o_rail=(i,s,v,d,r=11)=>o_data(i,s,a_rail(v,d),e_dispose(i,r),initpos(),0)
+
+
+//it's stage ui time!
+var stage_names=`gate;path;bridge;village;farm;windmill;room;camera;station;sign;
+train;railway;terminus;window;industrial zone;street;crossing;traffic;building;stairs;
+monument;navigation;route;harbour;ocean;coast;island;map;jungle;river;
+camp;mountain;valley;waterfall;limestone cave;stalactite;submarine;platform;tide;flora;
+temple;bell;lighthouse;boat;storm;thunder;whirlpool;glacier;iceberg;permafrost;
+cottage;stove;blizzard;avalanche;sculpture;crepuscular;constellations;aurora;perception;spectre;
+darkness;tunnel;gate;path;unconsciousness;revival;lamp;hospital;meditation;metropolis;
+church;cloister;skyscraper;elevator;park;lawn;square;theatre;movie;bus;
+village;bridge;path;gate;ruins;alley;basement;wall;light ray;outdoors;
+petrichor;sunlight;bookstore;afterglow;twilight;festival;fireworks;sonder;ephemeral and the eternal;exulansis`.replaceAll('\n','').split(';')
+var ui_el=document.getElementById('ui')
+function displayUI(){ui_el.innerHTML='current stage is '+(lv+1).toString().padStart(2,'0')+'.the '+stage_names[lv]+(allStagesPassed?'<br>you have passed all the stages':'')
+//ui_el.innerHTML+='<br>'+stage.obj.map(i=>i.data.id)
+}
+
+
+//REAL game loop
+function loadAllTheData(){let d=[],I=[]
+//shockwaves
+let o=stage.sw;for(let i=0;i<o.length;i++){I.push(d.length/4);let x=o[i][0],y=o[i][1],r=o[i][2];d.push(x-r,x+r,y-r,y+r,x,y,0.25,1,r,o[i][3],0.25,1,0,0,0,0)}
+//objects
+o=stage.obj;for(let i=0;i<o.length;i++){I.push(d.length/4);let s1=shapeData(o[i].data.shape,o[i].param);d.push(...getBound(s1),...s1,0,0,0,0)}
+//nodes
+for(let i=0;i<stage.node.length;i++){I.push(d.length/4);let t=stage.node[i],r=stage.node_r[i];d.push(t.x-r,t.x+r,t.y-r,t.y+r,t.x,t.y,0.5,1,r,0,0.5,1,0,0,0,0)}
+//Slidy Ice!
+o=stage.data.ice;for(let i=0;i<o.length;i++){I.push(d.length/4);let s1=shapeData(o[i],initpos()(),0.25);d.push(...getBound(s1),...s1,0,0,0,0)}
+//faded objs
+o=stage.fadeObj;for(let i=0;i<o.length;i++){I.push(d.length/4);let s1=shapeData(o[i][0],o[i][1]);d.push(...getBound(s1),...s1,o[i][2],1,0,0)}
+//wtf
+I.push(d.length/4);let d1=I.flatMap(i=>[i+I.length+1,0,0,1]);d=[...d1,0,0,0,0.5,...d]
+//loaddata
+for(let i=0;i<min(d.length,texdata.length);i++)texdata[i]=d[i];loadData()
+}
+texdata[3]=0.5;loadData()
+
+var blur_scale=0
+function setUniforms(){gl.uniform1i(gl.getUniformLocation(pr0,'wannaFvckMyself'),0);
+setunif('pla',2,[pla.x,pla.y]);setunif('goal',2,[stage.goal.x,stage.goal.y]);setunif('gstate',1,gstate);setunif('g_anim',1,g_anim);setunif('iTime',1,timeAnim.time)
+setunif('portal',4,stage.data.portal);setunif('isFB',1,0);setunif('vs',1,stage.vs);setunif('blur',1,blur_scale)
+}
+
+function realRender(){
+if(stage.data.portal[2]>0 || blur_scale>0 || useLightMap){
+load_tex(1,fb2.texture);bindFB(fb1);load_tex(0,tex);gl.uniform1i(gl.getUniformLocation(pr0,'t_img'),1);setUniforms();render()//fb2->render->fb1
+load_tex(1,fb1.texture);bindFB(null);setunif('isFB',1,1);render()//fb1->render->screen
+let t=fb1;fb1=fb2;fb2=t//swap fb1<->fb2
+}else{
+load_tex(0,tex);setUniforms();render() //simplified without portals. cuz renderin' to texture is SO FUKKING SLOW
+}
+}
+bindFB(null);
+function MAIN(){stageUpdate();loadAllTheData();realRender();plaDet();displayUI()}
+stages[0]=s_data([o_data(1,s_circ(0,0,1),a_swing(shape([[0,2],[0,-2]]),2))])
+loadStage(0)
+var fukkItUp=setInterval(function(){if(window['fxcked-up'])clearInterval(fukkItUp);MAIN();},1e3*dt)
+logshader()
+
+//levels - now face the MUSIC!
+
+//lv2
+stages[1]=s_data([...[[-5,1],[-5,-1],[0,1],[0,-1],[5,1],[5,-1]].map((i,j)=>o_gate('g'+j,s_rect(i[0],10*i[1],i[0]+0.2,0),[-0.2+i[0],0],[0,i[1]],1)),...[-1,1].map((i,j)=>o_data('sw'+j,shape([[-3,0],[-2,0],[-2.5,i]]),a_swing(s_seg_v(0,i),1,m_ease_in_out))),...[0,PI].map((i,j)=>o_data('sp'+j,s_circ(0,0,.3),a_spin(s_circ(2.5,0,1,1),3,m_linear,i)))])
+//lv3
+stages[2]=s_data([...[-1,1].map((i,j)=>o_gate('g'+j,s_rect(-5*i,10*i,-5*i+0.5,-i),[-.2-5*i,0],[0,1.5*i],.5)),o_data(1,s_circ(0,0,3),[a_expand_i(1,m_ease,.1),a_swing_i(s_seg_v(-4,4),1,m_linear,4)],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-1,0]),1),counter(p=>(p.anim[1].start=1),1,1,p=>p.size>=1)],initpos([0,0],[1,0],0.094))])
+//lv4
+{let A=3**0.5/2,a=6*A;let s=shape([[3,a],[6,0],[3,-a],[-3,-a],[-6,0],[0,0],[-3,a]].map(i=>[i[0]/4,i[1]/4]))
+stages[3]=s_data([o_data(1,s_rect(-5,1,-4.5,-1),a_swing(s_seg_v(-1.5,1.5),1)),o_gate(2,s_rect(8,10,8.5,-10),[7.8,0],[0,10.5],1),o_data(3,s_cube(0,0,0.25),a_rail_i(3,[-1,0]),[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([7.8,0]),1),e_data(()=>shift_s(3,0),p=>inSeg(p.pos.x,-5.25,-4.25)&&inSeg(fromId(1).param.pos.y,-0.75,0.75),1)],initpos([11,0],[1,0],1)),o_data(4,s,a_rot_offset(2,2,[-1,0]),e_evt,initpos([12,A],[1,0],1))])}
+//lv5
+stages[4]=s_data([...[-1,1].map((i,j)=>o_data('s'+j,s_rect(7+i,1,6.5+i,-1),a_swing(s_seg_v(1.5*i,-1.5*i),1))),...[0,PI*4].map((i,j)=>o_data('r1'+j,s_circ(0,0,.5),a_spin(s_circ(-2,2,4,1),8,m_linear,i))),...[0,PI*3].map((i,j)=>o_data('r2'+j,s_circ(0,0,.5),a_spin(s_circ(1,-1,3,1),4,m_linear,i))),o_gate('g',s_cube(-8,0,0.6),[-7.2,0],[0,1],1)],[9,0],[-9,0])
+//lv6
+stages[5]=s_data([...[-1,1].map((i,j)=>o_data('s'+j,s_cross(2,0.2),[a_swing(shape([[5*i,3*i],[5*i,-3*i]]),4),a_rotate(2)])),o_data(1,s_cross(2,0.2),a_rotate(2),e_data(()=>shift_s(1,0,3),()=>plaInPoint([-0.5,0]),1)),...[-1,1].map((i,j)=>o_data('t'+j,shape([[-3,10*i],[3,10*i],[0,4*i]])))])
+//lv7
+{let s=shape([[0,0],[-1,1],[0,2],[2,0],[0,-2],[-1,-1]]),A=[-0.5,1,3],t=-0.3
+stages[6]=s_data([o_data(1,s,a_static,e_data(()=>shift_s(1,0,10),()=>plaInPoint([t-5,0]),1),initpos([-5,0])),...[0,1,2].map((i)=>o_data('g'+i,s_rect(0,1.5,1,-1.5),[a_move_i([[A[i],0]],[0.5,1,2][i],m_delay(m_ease,(0.4+0.1*i)**2),[i-1,0]),a_move_i([[A[i],-3]],3,m_ease_in,[A[i],0])],[e_data((p)=>(p.anim[0].start=1),()=>plaInPoint([t-5,0]),1),e_data((p)=>(p.anim[1].start=1),(p)=>plaInPoint([p.pos.x-.2,0]),1)],initpos([i-1,0]))),o_lever('r',s_rect(-.3,.3,.3,-3),[t-10,-3],a_rotate_i(0.6,m_linear,1),initpos([5,3]))])}
+//lv8
+stages[7]=s_data([...[0,1].map((i)=>o_gate('g'+i,s_rect(i-6,2,i-5,-2),[i-6.2,0],[0,-3],3)),o_data('s',s_cross(3.5,0.5),a_rotate(1.6),e_evt,initpos([0,2.5])),o_data('e',s_circ(0,0,.5),[a_expand_i(2,t=>mixf(1,3.5,t)),a_swing_i(shape([[5,-5],[5,5]]),5,m_linear,5)],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([4.2,0]),1),counter(p=>(p.anim[1].start=1),1,1,(p)=>p.anim[0].start)],initpos([5,0])),o_data('c1',s_rect(-6,10,10,-10),a_rail(1,[1,0])),o_data('c2',s_rect(-31,10,-11,-10),a_rail(1,[1,0]))])
+//lv9
+{let s=shape([[8,0],[10,2],[9,3],[8,2],[7,3],[6,2]])
+stages[8]=s_data([o_gate('g1',s_rect(-10,-5,-7.5,-5.5),[-8,-5.7],[2.5,0],1),...[0,1,2].map(i=>o_data('sw'+i,s_circ(-10,2-2*i,.8),a_swing(s_seg(0,20),40/[1.2,2,3][i]))),o_lever('g2',s_rect(0,1,5,0),[0,3],a_data(PI,PI/2,2,0,0.5,0,(t,p)=>p.dir.set(new pn(1,t,1))),initpos([0,5])),o_lever('r2',s,[8,3],a_move_i([[0,6],[0,-10.5]],3),initpos()),o_gate('r1',shape([[8,2],[9,3],[8,4],[7,3]]),[5,8],[-6,14],8)],[-8,-8],[8,-8],[[-8,8],[8,8]],1)}
+//lv10
+{let n=[[-5,4],[-5,-4],[-9,-4],[-9,-9],[-4,-9]];n=[...n,...n.map(i=>[-i[1],i[0]]),...n.map(i=>[-i[0],-i[1]]),...n.map(i=>[i[1],-i[0]])].slice(0,18);let T=[[1,0],[0,1],[-1,0],[0,-1]],w=PI/4
+stages[9]=s_data([...T.map((i,j)=>o_data('st'+j,s_cube(4,0,0.5),a_static,e_evt,initpos([0,0],i))),o_data('sc',s_cross(4.5,0.5),a_rotate(w)),...T.map((i,j)=>o_data('sp'+j,s_rect(5.5,0.5,8.5,-0.5),a_data(2*PI,w,1,1,1/0,PI*j/2,(t,p)=>p.dir.set(new pn(1,t,1))))),o_shoot('sh',s_circ(0,0,1),2,a_static,initpos(),1),o_rail(1,s_icicle(0.4),4)],[-9,4],[-5,9],n)}
+//lv11
+stages[10]=s_data([o_data('s',s_rect(-20,0.5,20,-0.5),a_rotate(-0.2)),...[0,PI*3].map((i,j)=>o_shoot('r'+j,s_circ(0,0,0.5),2,a_spin(s_circ(0,0,3,-1),1.6,m_linear,i),initpos(new pn(3,i,1)),1)),o_rail(1,s_icicle(0.3),4)],[-8,-8],[5,-5],[[-8,8],[8,8],[8,-8],[-5,-8],[-5,5],[5,5]],1)
+//lv12
+stages[11]=s_data([...[-8,8].map((i,j)=>o_shoot('s'+j,s_circ(0,0,1),2,a_static,initpos([0,i]),1)),o_rail(1,s_icicle(.4),4),...[-7,-5,-3,-1,1,3,5].map((i,j)=>o_data('sw'+j,s_rect(i,2,i+1,-2),a_swing(s_seg_v(-3,3),3/(7-j))))])
+//lv13
+{let n=[[-6,8],[-5,8],...[-5,-3,-1,1].flatMap(i=>[[i,-8],[i+1,-8],[i+1,8],[i+2,8]])].map(i=>[i[1],i[0]])
+stages[12]=s_data([o_shoot('S',s_circ(0,0,0.5),1,a_static,initpos([0,7]),1),o_rail(1,s_icicle(.4),4),...[-1,1].map((i,j)=>o_shoot('s'+j,s_circ(0,0,0.5),2,a_swing(shape([[8*i,5],[-8*i,5]]),3),initpos(),2)),o_rail(2,s_icicle(.4),4,[0,-1])],[-8,-6],[0,3],n)}
+//lv14
+stages[13]=s_data([...[-1,1].map((i,j)=>o_data('sw'+j,s_rect(12*i,3,10*i,-3),a_swing(s_seg(2,-2),4,m_linear,2))),...[-1,1].map((i,j)=>o_counter('v'+j,s_rect(8*i,42,7*i,10),2,a_move_i([[0,-43]],(t)=>t<20?20:1))),...[-1,1].map((i,j)=>o_counter('h'+j,s_rect(-10,11*i,10,12*i),4,a_move_i([[0,-10*i]],10))),...['S','s0','s1'].map(i=>o_tb('wtf-'+i,s_inv,6,a_static,initpos(),i)),o_noInit(o_shoot('S',s_circ(0,0,0.5),2,a_move([[0,8]],6,m_linear,[0,14]),initpos([0,14]),1)),o_rail(1,s_plane(.7),4),...[-1,1].map((i,j)=>o_noInit(o_shoot('s'+j,s_circ(0,0,0.4),2,a_move([[5*i,5]],6,m_linear,[5*i,11]),initpos([5*i,11]),2))),o_rail(2,s_icicle(.4),4),...[1,-1].map((i,j)=>o_data('r'+j,s_circ(0,0,.6),[a_expand_i(1),a_spin_i(s_circ(0,0,3,1),3*PI,m_linear,3*PI*j)],[counter(p=>(p.anim[0].start=1),6,1),counter(p=>(p.anim[1].start=1),7,1)],initpos([3*i,0],[1,0],0)))])
+//lv15
+stages[14]=s_data([o_rail(1,s_rect(-0.5,4,0.5,-4),4),o_shoot('s',s_circ(0,0,0.5),2,a_swing(shape([[8,8],[-8,8]]),4,m_linear),initpos([8,8]),1,[0,-1],0),o_data(3,s_circ(0,0,2),[a_expand_i(0.75,m_linear,0.25),a_move_i([[5,0]],5)],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-0.8,0]),1),counter(p=>(p.anim[1].start=1),2,1,p=>p.anim[0].start),counter(()=>shift(3,4),3,1,p=>p.anim[0].start)],initpos([0,0],[1,0],0.25)),o_noInit(o_lever(4,s_circ(5,0,2),[2.8,0],a_move_i([[0,5]],5))),o_data(2,s_rect(-1,5,1,-5),a_rotate_i(-1),counter(p=>(p.anim[0].start=1),2,1,()=>plaInPoint([2.8,0])),initpos([5,5])),...[0,1,2].map(i=>o_data('a'+i,s_cube(0,0,.5),a_static,e_evt,()=>({pos:rdmRect(-8,-8,8,8),dir:new pn(1,6.3*rdm(),1),size:1})))])
+//lv16
+{let s=(i)=>shape([[0,10],[1,10],[1,51],[0,51],[0,31],[-20,31],[-20,30],[0,30]].map(j=>i==1?[1-j[0],j[1]]:j))
+stages[15]=s_data([o_gate('g',s_rect(8,1,9,-1),[7.8,0],[0,1.5],0.5),...[-1,-1,1,-1,1,1,-1,1].map((i,j)=>o_lever(j,s(i),[0,0],a_move_i([[2*j-8,-61]],20,m_linear,[2*j-8,0]),initpos([2*j-8,0])))])}
+//lv17
+{let R=5,w=2,W=4,s=(t)=>shape_tr(shape([[w,w],[w,10],[W,10],[W,W],[10,W],[10,w]]),{pos:new pn(0,0),dir:new pn(1,t,1),size:1})
+stages[16]=s_data([...[0,1,2,3].map(i=>o_data('w'+i,s(i*PI/2))),o_data('w4',s_rect(-7.5,w,-6.5,-w)),
+...[0,1,2,3,4,5,6,7].map(i=>o_data('s'+i,s_rect(1,.2,-1,-.2),a_data(2*PI,3,1,1,1/0,0,(t,p)=>p.pos.set(new pn(R*cos(t-i*PI/8),i*PI/8,1))),e_evt,initpos([0,0],new pn(1,i*PI/8,1))))],[-6,0],[-8,0],[],0,[],[0,0,2,PI/2])}
+//lv18
+{let w=1
+stages[17]=s_data([...[[-6,-1],[-6,-3-w],[6,-1],[6,-3-w]].map((i,j)=>o_data('sw'+j,s_rect(.3+i[0],1+i[1],-.3+i[0],-1+i[1]),a_swing(s_seg_v(0,4+w),2,m_ease_in_out))),...[-1,1].map((i,j)=>o_data('sw_'+j,s_rect(-2,0,2,10*i),a_swing(s_seg_v(0,2*i),1.5,m_comb2(m_linear,t=>clamp(1+(t-1)*8,0,1))))),...[0,1,2,3].map(i=>o_data('sp'+i,s_circ(0,0,.5),a_data(2*PI,PI,1,1,1/0,i*PI/2,(t,p)=>p.pos.set(new pn(3.5+1.5*sin(timeAnim.time*3),t,1)))))])}
+//lv19
+stages[18]=s_data([...[-4,0,4].map((i,j)=>o_data('sp'+j,s_rect(0.1,1,-0.1,-1),a_rotate(3),e_data(()=>shift_s('sp'+j,0),(p)=>plaInPoint([-0.2+p.pos.x,-8]),1),initpos([i,-8]))),...[-4,0,4].map((i,j)=>o_data('a'+j,s_rect(6.5,0.5+i,9.5,-0.5+i),a_swing(s_seg(-3,3),2))),...[3,5,4,6].map((i,j)=>o_data('s'+j,s_rect(3*j-6,10,3*j-3,7),a_swing(s_seg_v(0,3),i/2)))],[-8,-8],[-8,8],[[8,-8],[8,8]])
+//lv20
+{let sDOWN=shape([[-7.5,-7.5],[-4.5,-7.5],[-4.5,-4.5],[-1.5,-4.5],[-1.5,-1.5],[1.5,-1.5],[1.5,1.5],[4.5,1.5],[4.5,4.5],[7.5,4.5],[7.5,7.5],[10,7.5],[10,-15],[-7.5,-15]]),sUP=shape_tr(sDOWN,{pos:new pn(0,0),dir:new pn(-1,0),size:1}),n0des=[[-9,-6],[-6,-6],[-6,-3],[-3,-3],[-3,0],[0,0],[0,3],[3,3],[3,6],[6,6],[6,9]],X=()=>plaInPoint([9,9]),m1=(x)=>m_repeat(t=>clamp(3*(t-0.5)+0.5,0,1),x)
+stages[19]=s_data([...[-3,0,3].map((i,j)=>o_data('sw'+j,s_rect(-.2+i,-1+i,.2+i,1+i),a_swing(s_seg_v(-3,3),4))),o_gate('g',s_rect(-9.2,-7,-10,-5),[9,9],[-2,0],1),o_data('trigger',s_circ(11,11,0),a_static,e_data(()=>(stage.used_node=stage.used_node.map((i,j)=>j?0:1)),X,1)),o_data('sDOWN',sDOWN,[a_move([[0,3]],1,m1(6),[0,-15]),a_rail_i(5,[0,-1],1/0,0)],e_data(p=>(p.anim[0].start=0,p.anim[1].start=1),X,1)),o_data('sUP',sUP,[a_move_i([[0,-3]],1,m1(7),[0,18])],e_data(p=>(p.anim[0].start=1),X,1),initpos([0,18]))],[-9,-9],[-9.8,-6],n0des,1)}
+//lv21
+stages[20]=s_data([o_data('r',s_cross(3,.5),a_rot_offset(5,2,[-1,0]),e_data(()=>shift_s('r',0,3),(p)=>plaInPoint([-1+p.pos.x,0]),1),initpos([15,0])),o_shoot('s',s_rect(-0.5,2,0.5,-2),2.5,a_swing(shape([[8,3],[8,-3]]),3),initpos([8,3]),1,[-1,0],0),o_data(1,s_rect(-.5,2,.5,-2),a_data(1,1,1,1,1/0,0,(t,p)=>(p.pos.x-=dt*2,p.wtf||=1,p.pos.y=p.pos.y+3*p.wtf*dt,p.pos.y>3&&(p.wtf=-1),p.pos.y<-3&&(p.wtf=1))),e_dispose(1,11),initpos(),0)])
+//lv22
+stages[21]=s_data([o_data(-1,s_cube(8,8,1),a_move([[-16,0]],3)),o_data('s',shape([[8,0],[10,1],[10,-1]]),a_static,counter(()=>spawn(1,initpos([8,0])),1,1/0)),o_data(1,s_rect(-1,.2,1,-.2),a_swing(s_seg(8,-15),10,m_ease_in),e_dispose(1,11),initpos(),0),...[2,4,6].map((i,j)=>o_data('g'+j,s_rect(-.5,-.5,.5,1.5),a_data(PI/2,1,2,0,0.5,0,(t,p)=>p.dir.set(new pn(1,t,1))),e_data(p=>(p.anim[0].start=1),()=>plaInPoint([i-1,-8]),1),initpos([i,-9])))],[-8,8],[8,-8],[[0,8],[0,-8]])
+//lv23
+stages[22]=s_data([...[-1,1].map((i,j)=>o_data('sw'+j,shape([[-8,0],[-7,-2*i],[-6,0]]),a_swing(s_seg_v(0,-2*i),4))),...[1,2,3,4,5].map((i,j)=>o_data('sp'+j,s_circ(0,i,.6),a_rotate(i))),o_data('ss',s_cross(2,.1),[a_swing(shape([[6,3],[6,-3]]),4),a_rotate(PI)])])
+//lv24
+stages[23]=s_data([...[-1,1].map((i,j)=>o_data('s'+j,s_circ(0,0,1),a_move_i([[-5,9.5*i]],5,t=>clamp(m_bezier0(0,0,.6,-.5)(t)+0.1,0,1),[-5,3*i]),[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-5,0]),1),counter(p=>spawn(1,initpos(p.pos,[0,-i])),1,1/0)],initpos([-5,3.65*i]))),o_data('sp',s_cross(5,.8),a_rotate(1.2),e_evt,initpos([3,3])),o_data('sp2',s_rect(.5,3,-.5,-3),a_rotate(2),e_evt,initpos([10,10])),o_data('sp3',s_cross(2,.2),[a_swing(shape([[-8,-8],[6,-8]]),7,m_ease_in_out),a_rotate(2)],e_data(()=>shift_s('sp3',0,2),(p)=>plaInPoint([-.5+p.pos.x,-8]),1)),o_data(1,s_circ(0,0,.2),a_rail(3),e_dispose(1,11))],[-8,0],[6,9],[[8,0],[8,8],[-7,8],[-7,-8],[6,-8]])
+//lv25
+stages[24]=s_data([...[-6,-3,0,3,6].map((i,j)=>o_gate('g'+j,s_rect(i,2,i+1,-2),[i-0.2,0],[0,-10],5,m_ease_in)),o_data('sea',s_rect(-10,0,10,-10),a_data(1,1,1,1,1/0,0,(t,p)=>(p.pos.y=pla.x/2-5)),e_evt,initpos([0,-10])),...[-1,1].map((i,j)=>o_lever('s'+j,s_rect(10*i,-10,0.5*i,-50),[0,0],a_move_i([[0,40],[i*10,40]],10)))])
+//lv26
+{let e=e_data(p=>(p.anim[0].start=1),()=>indexFromId('g')<0,1)
+stages[25]=s_data([...[-6,-3,0,3,6].map((i,j)=>o_data('sw'+j,s_circ(0,0,.5),a_swing_i(shape([[i,3],[i,-7]]),20),e,initpos([i,3]))),o_data('g',s_rect(-.3,0,.3,3),[a_rotate_i(-6,t=>clamp(t**6,0,1),1),a_move_i([[-5,10]],20,m_linear,[-5,4])],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-5.5,6]),1),counter(p=>(p.anim[1].start=1),2,1,(p)=>p.anim[0].start),e_data(()=>shift_s('g',0,10),p=>(p.pos.y>=10),1)],initpos([-5,4])),o_data('sea',s_rect(-10,8,10,30),a_move_i([[0,-20]],0.3),e)],[-8,6],[-8,-6],[[8,6],[8,2],[-8,2],[-8,-2],[8,-2],[8,-6]])}
+//lv27
+stages[26]=s_data([...[0,1,2].map(i=>o_data('sp'+i,s_cross(3,.2),a_rotate(0.8*(i==2?-1:1)),e_evt,initpos([[-5,-5],[0,-5],[-2.5,-11]][i]))),o_data('g',s_rect(0,-6,1,-10),a_rail_i(1,[1,0],1),e_data(p=>(p.anim[0].start=1,p.anim[0].num=p.anim[0].time=0),(p)=>plaInPoint([p.pos.x-0.2,-8])&&(p.anim[0].num||!p.anim[0].start),1/0),initpos([5,0])),...[-1,1].map((i,j)=>o_data('sw'+j,shape([[-1*i,0],[0,1],[0,-1]]),[a_swing(s_seg(8,8-i),2,m_ease_in_out),a_data(1,1,1,0,1,0,(t,p)=>(p.pos.x=min(p.pos.x*i+4*dt,8*i)*i)),a_rail_i(4,[0.2,-1])],[e_data(p=>(p.anim[0].start=0,p.anim[1].start=1),()=>plaInPoint([8,-1.2]),1),counter(p=>(p.anim[2].start=1),1,1,(p)=>p.anim[1].start)],initpos([8,0]))),o_lever('g1',s_alley(0,-2,3,.6,5.1),[4,0],a_data(PI/2,PI/2,0,0,1,0,(t,p)=>p.dir.set(new pn(1,t,1))),initpos([0,8])),o_rail(1,s_icicle(.5),8,[1,0]),/*o_tb('trigger',s_circ(11,11,-1),a_static,counter(()=>spawn(1,initpos([8,0],[1,0])),2,1,()=>fromId('g1').param.anim[0].start))*/],[-8,-8],[0,8],[[8,-8],[8,8]])
+//lv28
+stages[27]=s_data([o_data('sp',s_alley(0,0,2,1,3),a_rotate(3),e_evt,initpos([-3,6])),...[0,1,2,3].map(i=>o_data('sp'+i,s_circ(0,0,.5),a_spin(s_circ(6,6,1.42),1.5*1.42,m_linear,1.42*i*PI/2))),...[0,1,2,3,4].map(i=>o_gate('g'+i,s_rect(4,3-i,8,2-i),[6,3.2-i],[-3-2*i,0],2*i+3,m_ease)),...[1,-1].map((i,j)=>o_data('r'+j,s_rect(-1.5,1.5,1.5,0),a_spin(s_circ(1.5,-7+1.25*i,0.75),2.5*0.75,m_linear,j*PI*0.75))),o_data('b',s_circ(0,0,.5),[a_expand_i(1),a_rail_i(2,[1,0])],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-1,-6]),1),counter(p=>(p.anim[1].start=1),2,1,(p)=>p.anim[0].start),e_data(()=>shift_s('b',0),p=>(p.pos.x>8),1)],initpos([-5,-6],[1,0],0)),o_shoot('sh',s_circ(0,0,.3),1,a_static,initpos([-9.5,0]),1),o_rail(1,s_spike(1/4),4)],[-8,6],[-6,-6],[[6,6],[6,-6]])
+//lv29
+stages[28]=s_data([...[-5,0,5].map((i,j)=>o_data('g'+j,s_rect(i,5,i+0.5,-10),a_rail_i(3,[0,-1],6,0),e_data(p=>(p.anim[0].start=1,p.anim[0].num=p.anim[0].time=0),function(p){let x=round(p.pos.y,6);return (p.anim[0].num||!p.anim[0].start)&&plaInPoint([mod(x,12)==0?i-0.2:i+0.7,x+3])},1/0))),...[-1,1].map((i,j)=>o_data('tree'+j,s_rect(0,0,i,25),[a_data(1,0.5,0,0,1,0,(t,p)=>p.dir.set(new pn(1,m_ease_in(t)*PI/2*i,1))),a_data(1,0.5,0,0,1,0,(t,p)=>p.dir.set(new pn(1,PI/2*i*(1-t),1)))],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([5*i,3*i]),1),e_data(p=>(p.anim[1].start=1),()=>plaInPoint([1,3*i-0.2]),1)],initpos([11*i,3*i])))],[-9,3],[1,9],[[9,3],[9,-3],[-9,-3],[-9,-9],[1,-9]])
+//lv30
+{let a=5.5,b=7.5,sw=3
+stages[29]=s_data([...[-9,-3,3,9].map((i,j)=>o_data('a'+j,s_rect(.2,1,-.2,-1),a_rotate(3),e_data(()=>shift_s('a'+j,0),()=>plaInPoint([i+0.4,0])||plaInPoint([i-0.4,0]),1),initpos([i,0]))),...[-1,1].map((i,j)=>o_data('sw'+j,s_rect(-2,.5,2,-.5),a_swing(shape([[-sw,i*2.5],[sw,i*2.5]]),sw,m_ease_in_out,sw),e_evt,initpos([0,i*2.5]))),...[-1,1].map((i,j)=>o_data('SW'+j,s_rect(-1,2,1,-2),a_swing(s_seg(3*i,9*i),3,m_ease_in_out),e_evt,initpos([i*3,0]))),o_data('g',s_rect(a-1,10,a+1,8),a_move_i([[0,1.5]],1),e_data(p=>(p.anim[0].start=1),()=>[0,1,2,3].every(i=>indexFromId('a'+i)<0),1))],[0,-8],[a,9],[[0,5],[-b,5],[-b,0],[-a,0],[-a,-5],[b,-5],[b,0],[a,0]],1,[/*s_rect(-10,3,10,-3)*/],[0,0,2,PI])}
+//lv31
+{let f=function(){let x=fromId(2)?.param?.pos?.x;return inSeg(fromId('sw0').param.pos.y,0,4)&&x<=7?2:x<=-9?1:0}
+stages[30]=s_data([...[0,1,2].map((i,j)=>o_data('sp'+j,s_circ(1,0,.3),[a_swing(s_seg(-7,-9),2,m_ease_in_out),a_rotate(2,m_linear,1/0,i/3)],e_evt,initpos([-7,0]))),...[7,5,3,1,-1,-3,-5].map((i,j)=>o_data('sw'+j,s_rect(i,0,i-1,-4),[a_swing(s_seg_v(-3,-9),6,m_bezier(1,0,0,1)),a_rail_i(10,[0,1],1/0,0),a_move_i([[0,[2,4.5,5.1,5.7,6.3,6.9,7.5][j]]],5,m_ease_in,[0,10])],[e_data(p=>(p.anim[0].start=0,p.anim[1].start=1),()=>plaInPoint([-8,-8]),1),e_data(p=>(p.anim[1].start=0,p.pos.y=10),p=>(p.pos.y>=10),1),e_data(p=>(p.anim[2].start=1),()=>plaInPoint([i-1.2,8]),1)],initpos([0,-3]))),o_data('wtf',s_alley(0,0,10,9,2),a_static,e_evt,initpos([-17,0],[0,1])),...[-1,1].map((i,j)=>o_data('sh'+j,s_circ(0,0,.5),a_move_i([[9,0]],0.8,m_linear,[9,9*i]),[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-8,8]),1),counter((p)=>p.anim[0].start||spawn(1,initpos(p.pos,toPla(p.pos))),2,1/0)],initpos([9,9*i]))),o_rail(1,s_spike(.3),4),o_rail(2,s_icicle(.4),30,[-1,0],100),o_data('trigger',s_circ(11,11,-1),a_static,[e_data(()=>spawn(2,initpos([9,0],[-1,0])),()=>fromId('sh0').param.pos.y==0,1),e_data(()=>spawn('exp',initpos([f()==1?0:17,0])),()=>f()>0,1)]),o_noInit(o_data('exp',s_cube(0,0,10),a_data(0.1,1,1,1,1,0,emptyfunc),e_data(()=>shift_f('exp',0),p=>p.anim[0].num,1)))],[8,-8],[8,8],[[-8,-8],[-8,8]])}
+//lv32
+stages[31]=s_data([o_data(1,shape([[-10,-10],[0,0],[10,-10]])),o_data(2,shape([[-2,2],[2,2],[0,4]])),...[-1,-3,-5,-7].map((i,j)=>o_data('sw'+j,s_rect(-1,.3+i,1,-.3+i),a_swing(s_seg(i-1,-i+1),abs(i)*1.5))),...[-6,-3,0,3,6].map((i,j)=>o_data('Sw'+j,s_rect(-.3+i,1,.3+i,-1),a_swing(s_seg_v(2-abs(i),-2-abs(i)),4)))],[-9,-8],[9,-8],[[0,1]],0.5)
+//lv33
+{let w=0.5,a=3**0.5,s=(t)=>shape_tr(shape([[w,w],[w-10/a,w+10],[w+10,w+10],[w+10,w-10/a]]),{pos:new pn(0,0),dir:new pn(1,t*PI/2,1),size:1})
+stages[32]=s_data([...[0,2].map(i=>o_data('w'+i,s(i),a_static,e_data(()=>shift_f('w'+i,'w'+(i+1)),()=>plaInPoint([0,0]),1))),...[1,3].map(i=>o_noInit(o_data('w'+i,s(i)))),o_data('tri',shape([[-1.5,-1.5],[-1.5,1.5],[1.5,-1.5]]),a_static,e_data(()=>(shift_s('tri',0,5),fromId('g').anim[0].start=1),()=>plaInPoint([-8.3,-8.3]),1),initpos([-8.5,-8.5])),o_data('g',shape([[7,9],[5,7],[7,5],[9,7]]),a_move_i([[2,-2]],1)),...[5,-5,3,-3].map((i,j)=>o_data('sp'+j,s_circ(i,0,.5),a_rotate((j>1?-1:1)*abs(i)/2.5))),...[-5,0,5].map((i,j)=>o_data('sw'+j,s_circ(0,0,1),a_swing(shape([[i-2,i+2],[i+2,i-2]]),2)))],[-9,9],[9,9],[[0,0]],-0.5)}
+//lv34
+{let v=0.25,vs=0.3
+stages[33]=s_data([...[-6,-3,0,3,6].map((i,j)=>o_gate('g'+j,s_rect(i-1.5,6,i+1.5,8),[i+2.5,5],[0,-4],4)),...[-3,3].map((i,j)=>o_data('sw'+j,s_rect(-9,i,-7,i+0.3),a_swing(s_seg(2,-2),1+i*0.1))),...[-4,0,4].map((i,j)=>o_data('sp'+j,s_rect(0.1,1,-0.1,-1),a_rotate(3),e_data(()=>shift_s('sp'+j,0),(p)=>plaInPoint([-0.2+i,-8]),1),initpos([i,-8]))),...[-2,2].map((i,j)=>o_data('Sp'+j,s_circ(i,0,.4),a_rotate(4,m_ease_in_out),e_evt,initpos([8,-3]))),o_data('c0',s_rect(-20,0,20,20),a_move([[0,0]],v,m_linear,[0,10]),e_evt,initpos([0,10])),o_data('c1',s_rect(-20,0,20,20),[a_move([[0,0]],v,m_linear,[0,10]),a_data(PI,vs,0,0,1,0,(t,p)=>p.dir.set(new pn(1,t,1)))],counter(p=>(p.anim[1].start=1),10/v,1),initpos([0,10])),],[9,5],[8,-0.1],[[-8,5],[-8,-8],[8,-8]],0,[s_rect(-10,6,10,-6)])}
+//lv35
+stages[34]=s_data([...[-1,1].map((x,j)=>o_data('roof'+j,shape([[-10,10*x],[10,10*x],[10,6*x],[8,8*x],[-8,8*x],[-10,6*x]]))),...[0,1,2,3].map(i=>o_shoot('sh'+i,s_circ(0,0,.4),2,a_static,initpos(new pn(8*2**0.5,PI*(i+0.5)/2,1)),1)),o_rail(1,s_icicle(.4),4),o_gate('G',s_rect(-5,2,-5.2,10),[-5.5,0],[0,-12],10,m_ease_in),o_data('b',s_circ(0,0,2),[a_move_i([[0,3]],1),a_expand_i(1,m_linear,0.25)],[e_data(p=>(p.anim[0].start=p.anim[1].start=1),()=>plaInPoint([-0.7,0]),1)],initpos([0,0],[1,0],0.25)),o_data('c',s_cross(3,.2),[a_move_i([[3,0]],12,m_linear,[6,11]),a_rotate(-1.4)],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([0,0]),1),e_data(()=>shift_s('c',0,3),p=>plaInPoint([p.pos.x-0.6,p.pos.y]),1)],initpos([6,11])),o_shoot('Sh',s_circ(0,0,1),1,a_static,initpos([7,9]),2,[0,-1],0),o_rail(2,s_circ(0,0,.5),4),...[-1,1].map((i,j)=>o_data('g'+j,s_rect(4,i,8,0),[a_move_i([[0,i*5]],1),a_data(1,1,1,0,1/0,0,(t,p)=>(p.pos.y=i*max(p.wtf||0,i*p.pos.y-dt*5)))],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([3.7,0]),1),e_data(p=>(p.anim[0].start=0,p.anim[1].start=1,p.wtf=abs(p.pos.y)<4.9?0:0.5),()=>plaInPoint([4.2,0]),1)]))])
+//lv36
+{let f=()=>stage.used_node.every(i=>i==1)
+stages[35]=s_data([...[-1,1].map((i,j)=>o_gate('g'+j,s_rect(5*i,10,4*i,6),[[-3.8,5.2][j],8],[0,-2.3],2)),...[-1,1].map((i,j)=>o_data('Sw'+j,shape([[0,.5],[0,-.5],[2.5*i,0]]),a_swing(s_seg(0,8.5*i),8.5,m_ease_in,8.5),e_data(()=>spawn_sw([10*i,0],2),p=>abs(p.pos.x)>7.5,1/0))),...[[1,1],[1,-1],[-1,1],[-1,-1]].map((i,j)=>o_data('sw'+j,shape([[6*i[0],-8],[5*i[0],-8],[5.5*i[0],-8+i[1]]]),a_swing(s_seg_v(0,i[1]),2))),...[-1,1].map((i,j)=>o_data('sp'+j,s_circ(2*i,0,.5),a_rotate(3),e_data(p=>(p.anim[0].start=0),()=>plaInPoint([0,8])&&f(),1),initpos([0,-8]))),...[-1,1].map((i,j)=>o_data('gh'+j,s_rect(-3*i,6,0,5),a_move_i([[-i*3,0]],3),e_data(p=>(p.anim[0].start=1),()=>plaInPoint([0,6.2])&&f(),1))),o_shoot('sh',s_circ(0,0,.4),2,a_static,initpos([0,10]),1,[0,-1],0),o_rail(1,s_icicle(.4),2)],[-2,8],[0,-9.8],[[0,8],[-8,8],[-8,-8],[8,-8],[8,8]])}
+//lv37
+stages[36]=s_data([o_data('sw',shape([[-8,12.5],[-6,8.5],[-4,12.5],[-2,8.5],[0,12.5],[2,8.5],[4,12.5],[6,8.5],[8,12.5]]),a_swing(s_seg_v(0,-2),4)),o_data('b',s_circ(0,0,2),[a_swing(s_seg(7,9),1.3),a_data(1,1,2,1,1/0,0,(t,p)=>(p.size=t))]),...[1,2].map(i=>o_shoot('sh'+i,s_circ(0,0,.5),2,a_static,initpos([-9.5,-8]),i,[1,0],0)),...[-1,1].map((i,j)=>o_data(j+1,s_circ(i,0,.4),a_rot_offset(PI,3,[1,0]),e_dispose(j+1,12),initpos(),0))],[-9,8],[-9,7],[[8,8],[8,-8],[-9,-8]])
+//lv38
+{let f=function(){let x=[];for(let i=0;i<6;i++)for(let j=0;j<6;j++)x.push([2*i-5,2*j-5]);return x}
+stages[37]=s_data([o_data(1,s_rect(7.5,4,7.8,2),a_move_i([[0,-2]],1),e_data(p=>(p.anim[0].start=1),()=>stage.used_node.every(i=>i==1),1)),...[0,1,2,3].map(i=>o_data('sp'+i,s_rect(9.5,-6,10,6),a_static,e_evt,initpos([0,0],new pn(1,i*PI/2,1))))],[-8,3],[8,3],f(),0,[s_circ(0,0,7.5)])}
+//lv39
+{let x=s_rect(1,-0.2,-1,0.2)
+stages[38]=s_data([o_data('sw',s_rect(-10,1,10,10),a_swing(s_seg_v(0,9),4,m_ease_out)),...[-1,1].map((i,j)=>o_shoot('sh'+j,s_circ(0,0,.2),1,a_swing(shape([[-9*i,9],[9*i,9]]),3),initpos([-9*i,9]),1,[0,-1],0)),o_rail(1,x,4),...[-2,-1,0,1,2].map((i,j)=>o_shoot('Sh'+j,s_circ(0,0,.2),2,a_static,initpos([0,9]),1,new pn(1,i*PI/8,1),1)),...[1,-1,1,-1,1,-1,1,-1,1,-1].map((i,j)=>o_data('g'+j,s_cube((j+1)*i,0,.5),a_move_i([[0,-11]],1),e_data(p=>(p.anim[0].start=1),()=>plaInPoint([(j+0.2)*i,0])&&(j==0||fromId('g'+(j-1)).anim[0].start),1)))],[0,0])}
+//lv40
+stages[39]=s_data([...[-1,1].map((x,j)=>o_data('s'+j,shape([[-6,-1-11*x],[-6,-x],[-5,-2-x],[-4,-x],[-3,-2-x],[-2,-x],[-1,-2-x],[0,-x],[1,-2-x],[2,-x],[3,-2-x],[4,-x],[5,-2-x],[6,-x],[6,-1-11*x]]),a_swing(s_seg_v(0,2),1,m_ease_in_out)))])
+//lv41
+{let x=2.2,s=shape([[2,0],[0,2],[-2,0],[0,-2],[2,0],[x,0],[0,-x],[-x,0],[0,x],[x,0]])
+stages[40]=s_data([o_data('g',s,a_rotate(1.5),e_data(()=>shift_s('g',0,3),()=>plaInPoint([-6.4,0]),1),initpos([-8,0])),...[1,-1].map((i,j)=>o_data('sw'+j,s_rect(-i,-5.2*i,[-2,0][j],-1.2*i),a_swing(s_seg_v(0,6.4*i),6.4))),...[0,1].map(i=>o_data('sp'+i,s_circ(0,0,.4),a_data(2*PI,3,1,1,1/0,PI*i,(t,p)=>p.pos.set(new pn(max(0,2-pla.dist(new pn(5,0))),t,1).add(new pn(5,0)))),e_evt,initpos([5,0]))),o_data('r',s_rect(-33,10,-13,-10),a_move([[23,0]],3))])}
+//lv42
+{let r=3,v=5,f=()=>fromId('g').anim[0].start
+stages[41]=s_data([o_gate('g',s_rect(-6.2,2,-5.8,-2),[-6.4,0],[0,-3],2,m_ease_in),...[-1,1].map((i,j)=>o_data('sp'+j,s_circ(i,0,.4),a_rotate(3),e_evt,initpos([-4,0]))),o_data('b',s_circ(0,0,.5),[a_expand_i(2,m_ease),a_move_i([[0,3]],1)],[e_data(p=>(p.anim[0].start=1),()=>f(),1),e_data(p=>(p.anim[1].start=1),()=>plaInPoint([-0.7,0]),1),counter(p=>spawn_sw(p.pos,2),.8,1/0,()=>f())],initpos([0,0],[1,0],0)),o_data('G',s_rect(.2,2,-.2,-2),[a_data(PI/2,1.5,0,0,1,0,(t,p)=>p.dir.set(new pn(1,t,1))),a_move_i([[12,0]],v,m_pow(2),[2,0])],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([1.7,0]),1),counter(p=>(p.anim[1].start=1),1,1,p=>p.anim[0].start)],initpos([2,0])),...[-1,1].map((i,j)=>o_data('B'+j,s_circ(0,0,r),a_move_i([[6,i*6]],3,m_ease_in,[6,i*r/2]),e_data(p=>(p.anim[0].start=1,spawn_sw(p.pos,r*1.5)),()=>fromId('G').param.pos.x>4,1),initpos([6,i*r/2]))),...[-1,1].map((i,j)=>o_data('sw1ng'+j,s_rect(6+i*r/3,r/3,6+i*(r/3+0.2),-r/3),a_swing(s_seg_v(i*r/2,-i*r/2),r/2)))],[-9,0],[9,0])}
+//lv43
+stages[42]=s_data([o_data('dark',s_hollowSquare(20,1),[a_data(1,2,0,0,1,0,(t,p)=>(p.size=2/(1+m_ease(t)))),a_data(1,1,1,1,1/0,0,(t,p)=>p.pos.set(pla))],e_data(p=>(p.anim[0].start=1),()=>plaInPoint([0,0]),1),initpos([-9,-8],[1,0],2)),...[-1,1].map((i,j)=>o_shoot('sh'+j,s_inv,2,a_static,initpos([-9*i,9*i]),1)),o_rail(1,s_icicle(.4),4),...[1,1.9,2.8].map((i,j)=>o_data('sw'+j,s_circ((j-1)*2,-2,.5),a_swing(s_seg_v(0,4),8/i))),o_gate('g0',s_rect(-6,-8.5,-5,-7.5),[-6.2,-8],[0,.8],.8),o_gate('g1',s_rect(5,7.5,6,8.5),[4.8,8],[0,-.8],.8)],[-9,-8],[9,8],[[-3,-8],[-3,0],[3,0],[3,8]])
+//lv44
+stages[43]=s_data([o_data('wtf',s_rect(-10,-0.3,10,-10)),...[-1,1].map((i,j)=>o_shoot('sh'+j,s_inv,2,a_static,initpos([-9*i,-9]),1)),o_rail(1,s_icicle(.4),4),o_data('WTF',s_circ(0,5,.5)),...[1,1,4,5,1,4,1,9,1,9].map((i,j)=>o_lever('t'+j,s_icicle(.4),[-1,2],a_rail_i(4,[0,1]),()=>({pos:new pn(rdmRange(-7,7),-2),dir:new pn(0,1),size:1})))])
+//lv45
+stages[44]=s_data([o_gate('g',s_rect(-9,1,-8.5,-1),[9,0],[0,2]),o_shoot('sh',s_circ(0,0,.5),2,a_static,initpos([10,-1]),1,[-1,0],0),o_data(1,s_rect(-0.2,1,0.2,-1),a_rot_offset(4,3,[-1,0]),e_dispose(1,11),initpos(),0),...[0,1,2].map((i,j)=>o_data('sp'+j,s_spike(.7),a_data(2*PI,1,1,1,1/0,0,(t,p)=>(p.dir.set(new pn(1,t+2*PI*i/3,1)),p.pos.set(new pn(sin(3*t)+1.2,t+2*PI*i/3,1))))))],[-8,0],[-9,0])
+//lv46
+stages[45]=s_data([...[-1,1].map((i,j)=>o_data('ceil'+j,s_rect(-10,-10*i,10,[4,-0.25][j]))),...[0,1,2].map((i,j)=>o_shoot('sh'+j,s_inv,0.2,a_data(1,1,1,1,1/0,0,(t,p)=>p.pos.set(new pn(rdmRange(-9,9),4))),initpos([0,4]),1,[0,-1],0)),o_data(1,s_rect(-2,0.1,0,-0.1),a_rail(6,[0,-1]),e_data(()=>shift(1,0),p=>p.pos.y<-3,1),initpos(),0),o_data('b',s_circ(0,0,.5),a_data(2*PI,1.6,1,1,1/0,0,(t,p)=>p.pos.set(new pn(abs(sin(PI/2*timeAnim.time)),t,1).add(new pn(11-3*timeAnim.time,0)))),e_data(()=>shift('b','wtf'),p=>p.pos.x<-10,1),initpos([11,0])),o_data('wtf',s_rect(10,10,-10,-10),a_static,counter(()=>shift_f('wtf',0),0.1,1),initpos(),0),...[0,1,2].map(i=>o_data('sp'+i,s_spike(.5),a_rotate(-PI/3,m_linear,1/0,i/3),e_evt,initpos([5,-1])))])
+//lv47
+stages[46]=s_data([...[-9,-7,-5,-3,2,4,6,8].map((i,j)=>o_data('sp'+j,s_rect(2,i,-2,i+1),a_rotate(6.3/(i>0?i:-i-1)))),o_data('c',s_cross(2,.2),a_data(2*PI,()=>pla.dist(new pn(0,0)),1,1,1/0,0,(t,p)=>p.dir.set(new pn(1,t,1))),e_data(()=>(shift('c',0),[1,3,5,7,9].forEach(i=>spawn_sw([0,0],i))),()=>plaInPoint([-1,0]),1)),...[-1,1].map((i,j)=>o_shoot('sh'+j,s_circ(0,0,.5),2,a_static,initpos([0,9*i]),1)),o_rail(1,s_icicle(.4),4)])
+//lv48
+stages[47]=s_data([o_shoot('sh00t',s_inv,2,a_data(1,1,1,1,1/0,0,(t,p)=>p.pos.set(new pn(pla.x,12))),initpos([-9,12]),1,[0,-1],0),o_data(1,s_spike(.5),a_rail(4,[0,-1],11.5),e_evt,initpos(),0),...[-1,1].map((i,j)=>o_shoot('sh'+j,s_circ(0,0,1),2,a_static,initpos([10,10*i]),2)),o_rail(2,s_rect(-5,.2,0,-.2),5,0,15),...[-1.5,0,1.5].map((i,j)=>o_data('sw'+j,s_circ(i,0,.5),a_swing(s_seg_v(-1,1),2,m_repeat(m_ease_in_out,2)))),...[-1,1].map((i,j)=>o_data('Sw'+j,s_cross(3,.2),[a_rotate(0.7),a_swing(shape([[5*i,-5*i],[5*i,5*i]]),3)]))])
+//lv49
+stages[48]=s_data([o_gate('i1',shape([[-5,1],[-8,-5],[-2,-5]]),[-5.7,0],[0,-1.25],0.5),o_lever('i2',shape([[4.5,1],[5,2],[5.3,1.4]]),[0,0],a_move_i([[-5,-1.5],[-20,-1.5]],4)),o_data('i3',shape([[4.5,1],[5.3,1.4],[8.4,-4.8],[1.6,-4.8]])),o_gate('i4',shape([[8.4,-4.8],[1.6,-4.8],[0,-8],[10,-8]]),[1.2,-5.1],[0,-.6],.5),...[3,5,7,11,13].map((i,j)=>o_shoot('sh'+j,s_circ(0,0,.5),i/2,a_static,initpos([9,-9]),1)),o_rail(1,s_spike(.5),4)],[-10,0],[9,0],[[1.2,0],[1.2,-5.1],[9,-5.1]])
+//lv50
+{let v=(x,r,sp)=>(()=>sp*max(0,1-abs(pla.x-x)/r))
+stages[49]=s_data([...[-7.5,-5.5,5.5,7.5].map((i,j)=>o_data('sw'+j,s_rect(i-0.5,2,i+0.5,-2),a_swing(s_seg_v(-3,3),v(i,3,5)))),...[0,1,2].map(i=>o_data('sp'+i,shape([[.5,.3],[.5,-.3],[1,0]]),a_rotate(v(0,3,2),m_linear,1/0,i/3))),...[0,1,2].map(i=>o_data('Sp'+i,shape([[1.5,1.5],[1.5,-1.5],[4.5,0]]),a_rotate(v(0,5,-2),m_linear,1/0,i/3)))])}
+//lv51
+{let R=(x,h)=>({pos:new pn(rdmRange(-x,x),h),dir:new pn(1,0),size:1}),T=()=>timeAnim.time,Rd=()=>({pos:new pn(0,0),dir:new pn(1,rdm()*6.28,1),size:1})
+stages[50]=s_data([o_data('sh1',s_inv,a_static,counter(()=>spawn(1,initpos([rdm()>0.5?5:-5,12])()),1,5)),o_data(1,s_rect(-5,1,5,-1),a_rail(10,[0,-1],1/0,0),e_dispose(1,13),initpos(),0),...[-1,1].map((i,j)=>o_data('w'+j,shape([[i,10],[10*i,10],[10*i,110],[9*i,110],[9*i,90],[i,70]]),a_move_i([[0,-100]],20),counter(p=>(p.anim[0].start=1),8,1))),o_data('sh2',s_inv,a_static,counter(()=>spawn(2,R(8,15)),2,5,()=>T()>13)),o_data(2,s_cross(5,.5),a_rot_offset(5,1.5,[0,-1]),e_dispose(1,16),initpos(),0),o_data('sh3',s_inv,a_static,counter(()=>spawn(3,R(8,10)),2,10,()=>T()>28)),o_data(3,s_circ(0,0,1),a_data(1/0,1.25,0,1,1,0,(t,p)=>(p.pos.y-=dt*5,p.size=min(5,t))),e_data(()=>shift_s(3,0,5),p=>p.pos.y<=-8,1),initpos(),0),o_data('trigger',s_inv,a_static,e_data(()=>'wtf',()=>!(stage.used_node[0]=T()>53?0:1),1)),o_data('sh4',s_inv,a_static,counter(()=>spawn(4,Rd()),2,5,()=>plaInPoint([0,0])||indexFromId(4)>-1)),o_data(4,s_alley(0,0,13,10,23),[a_rotate(2),a_expand(0.2,t=>1-t)],e_data(()=>shift(4,0),p=>(p.size<=0),1),initpos(),0)],[-2,-8],[-8,0],[[0,-8],[0,0]])}
+//lv52
+stages[51]=s_data([o_data('sw',shape([[-6,-5],[-5.5,-2],[-5,-5],[-5.5,-8]]),a_swing(s_seg_v(-4,4),4,m_ease_in_out)),o_data('st0ve',s_alley(0,0,2,1.5,3.5),a_static,e_evt,initpos([0,-8],[-1,0])),o_shoot('sh',s_inv,1,a_static,initpos([0,-10]),1,[0,1],0),o_data('sp',shape([[-1,3],[1,-3],[-1,-3],[1,3]]),a_rotate(2),e_evt,initpos([6,-3])),o_lever('g',s_rect(0,0,-8,1),[1,-5],a_rotate_i(2,m_ease_in,1),initpos([0,10])),o_gate('g1',s_rect(-1.5,0,1.5,1),[0,1.3],[0,-9.5],2),o_data(1,s_spike(.5),a_rail(5,[0,1]),e_data(()=>shift_f(1,0),p=>p.pos.y>=fromId('g1').param.pos.y,1),initpos(),0)],[-8,-5],[0,-8],[[8,-5],[8,5],[0,5]])
+//lv53
+stages[52]=s_data([...[1,3].map((i,j)=>o_shoot('sh'+j,s_circ(0,0,.5),2,a_spin(s_circ(0,0,5,1),10,m_linear,5*i*PI/2),initpos(),1)),o_data(1,s_icicle(.4),[a_rail(4),a_rotate(1)],e_dispose(1,15),initpos(),0)],[0,8],[0,-8],[],1,[s_cube(0,0,10)],[0,0,2,PI/6])
+//lv54
+stages[53]=s_data([...[-1,1].map((i,j)=>o_data('sp'+j,s_circ(5*i,0,1),a_rotate(1.5))),/*...[-5,5].map((i,j)=>o_data('sw'+j,s_rect(-.5,2+i,.5,-2+i),a_swing(s_seg(3-i,-3-i),2))),*/...[-5,5].map((i,j)=>o_data('Sp'+j,s_rect(-5,1,5,-1),a_rotate(1),e_evt,initpos([0,i]))),o_data('wtf',shape([[-10,-10],[-30,-10],[-30,30],[-10,10]]),a_move([[20,-20]],1)),o_data('WTF',s_alley(0,0,1,0.7,1.7),a_static,e_evt,initpos([9,-9],[-1,0])),o_gate('g',s_rect(8.3,-8,9.7,-9.7),[9,-7.7],[0,-2],1)],[-9,9],[9,-9],[[-6,9],[-6,6],[-3,6],[-3,3],[0,3],[0,0],[3,0],[3,-3],[6,-3],[6,-6],[9,-6]])
+//lv55
+stages[54]=s_data([...[-1,1].map((i,j)=>o_gate('g'+j,s_rect(-10*i,i,-6*i,-i),[-8*i,-1.3*i],[-3*i,0],1)),...[-3,3].map((i,j)=>o_data('G'+j,s_circ(0,0,.5),[a_move_i([[0,4]],8,m_linear,[0,4+i]),a_rail_i(2,[1,0],15)],[e_data(p=>(p.anim[0].start=1,i>0&&spawn('sh')),()=>plaInPoint([-5,4]),1),e_data(p=>(p.anim[1].start=1),()=>plaInPoint([-1,4]),1)],initpos([0,4+i]))),o_noInit(o_shoot('sh',s_circ(0,0,.4),2,a_expand(1),initpos([-3,8]),1)),o_data(1,s_cross(2,.2),a_rot_offset(4,1),e_dispose(1,15),initpos(),0),...[1,3].map((i,j)=>o_data('sp'+j,s_rect(-1,1,1,3),a_rotate(1,m_linear,1/0,i/4),e_evt,initpos([8,-8]))),...[-3,3].map((i,j)=>o_data('eye',s_circ(i,-2,.5),a_static,counter(()=>stage.used_node[2]||spawn(2,initpos([i,-2],[0,-1])()),1,1/0))),o_data('m',s_rect(-2,-5,2,-5.5)),...[-1,1].map((i,j)=>o_data('l'+j,s_rect(-.25*i,.25,i*2,-.25),a_data(PI/2,1.5,0,0,1,0,(t,p)=>p.dir.set(new pn(1,i*(t-PI/4),1))),e_data(p=>(p.anim[0].start=1),()=>plaInPoint([8,-8]),1),initpos([1.75*i,-5.25],new pn(1,-PI*i/4,1)))),o_rail(2,s_rect(.5,.1,-.5,-.1),3)],[-8,-8],[0,-8],[[-8,4],[8,4],[8,-8]],1)
+//lv56
+{let f=()=>indexFromId('c')<0,g=(p)=>p.anim[1].start,I=initpos([114.514,191.9810]),a1=a_move_i([[0,0]],10,m_linear,[0,20]),a2=a_move_i([[0,-1.3]],10,m_linear,[0,20]),e1=e_data(p=>(p.anim[1].start=1),f,1)
+stages[55]=s_data([o_data('c',s_cross(2,.2),[a_move([[-5,0]],3,m_linear,[13,0]),a_rotate(1.5)],e_data(p=>(shift_s('c',0,2),[0,1,2,3].forEach(i=>spawn_sw(p.pos.add(p.dir.mult(2).rot(PI*i/2)))),stage.wtf=p.pos.x<-4.9?1:0),p=>plaInPoint([p.pos.x-0.6,0]),1)),...[-1,1].map((i,j)=>o_data('d'+j,s_rect(-10,0,10,10*i),[a_data(1,1,1,0,1/0,0,(t,p)=>(p.pos.y=i*max(stage.wtf,i*p.pos.y-dt*6))),a_rail_i(5,[0,i],10,0)],[e_data(p=>(p.anim[0].start=1),f,1),e_data(p=>(p.anim[1].start=1,p.anim[0].start=0),()=>plaInPoint([6.2,0]),1)],initpos([0,10*i]))),o_data('g0',s_rect(-2.8,2,-3.2,-2),[a_move_i([[0,2.5]],2),a1],[e_data(p=>(p.anim[0].start=1),p=>plaInPoint([-3.3,0])&&g(p),1),e1],I),o_data('g1',s_rect(.2,3.3,-.2,-.7),[a_data(PI,1.5,0,0,1,0,(t,p)=>p.dir.set(new pn(1,t,1))),a2],[e_data(p=>(p.anim[0].start=1),p=>plaInPoint([-.3,0])&&g(p),1),e1],I),o_data('g2',s_rect(3.2,2,2.8,-2),[a_move_i([[-3,0],[10,0]],3),a1],[e_data(p=>(p.anim[0].start=1),p=>plaInPoint([2.7,0])&&g(p),1),e1],I),o_data('g3',s_rect(7.5,10,6.5,-10),[a_move_i([[-14,0]],4),a1],[e_data(p=>(p.anim[0].start=1,spawn('g4'),spawn('sh0'),spawn('sh1')),p=>plaInPoint([6.2,0])&&g(p),1),e1],I),o_data('g4',s_rect(7.5,10,6.5,-10),[a_move([[-14,0],[20,0]],1)],[counter(()=>shift('g3',0),14,1)],initpos(),0),...[-1,1].map((i,j)=>o_noInit(o_shoot('sh'+j,s_circ(0,0,.5),1,a_static,initpos([0,i*9]),1))),o_data(1,shape([0,1,2,3,4].map(i=>new pn(.4,i*PI*0.8,1))),a_rot_offset(5,0.6),e_dispose(1,11),initpos(),0)])}
+//lv57
+{let u=(i)=>0.5+i*0.05,l=(i)=>1+0.1*i
+stages[56]=s_data([...list(0,2,7).flatMap(i=>[-1,1].map((j,k)=>o_data(i+'sp'+k,s_rect(-0.2,l(i),0.2,-l(i)),[a_rotate(2*j,m_linear,1/0,i*0.02),a_rail_i(5,[0,j],10.5,0)],e_data(p=>(p.anim[1].start=1),()=>plaInPoint([8,0]),1),initpos([(i-6)*0.8,u(i)*j])))),...[0,1,2,3,4].flatMap(i=>[-1,1].map((j,k)=>o_data(i+'Sp'+k,s_star(2,0,.5,5,2),a_rotate(2,m_linear,1/0,i/5),e_evt,initpos([0,9*j]))))],[-8,0],[9,0],[[8,0],[8,9],[-9,9],[-9,-9],[9,-9]])}
+//lv58
+stages[57]=s_data([...[0,1,2,3].map(i=>o_data('sp'+i,s_rect(3,.3,-3,-.3),a_rotate(2),e_evt,initpos(new pn(14.5,(i+.5)*PI/2,1)))),o_data('sh',s_star(0,0,2,5,2),a_rotate(.5),counter(p=>[0,1,2,3,4].forEach(i=>spawn(i+1,initpos([0,0],p.dir.cmult(new pn(1,0.4*PI*i,1)),1)())),2,1/0)),...[1,2,3,4,5].map(i=>o_data(i,s_rect(0,0.2,30,-0.2),a_static,counter(()=>shift_f(i,0),0.1,1),initpos(),0))],[-9,-9],[-7,-8],[[-9,9],[9,9],[9,-9],[-8,-9],[-8,8],[8,8],[8,-8]],1,[],[0,0,6,0.3])
+//lv59
+stages[58]=s_data([...list(1,1,8).map((i,j)=>o_data('sp'+j,s_circ(i*2,0,.5),a_rotate(5/i),e_evt,initpos([9,-9])))],[9,9],[-9,-9],[[9,-9]],1,[],[-1,1,9,0])
+//lv60
+stages[59]=s_data([...[-6,-4,-2,0,2,4,6].flatMap(i=>[0,1,2].map((j,k)=>o_data(i+'sp'+k,s_circ(1,0,.3),[a_rotate(1,m_linear,1/0,j/3),a_spin(s_circ(0,0,i,1),3)]))),...list(-7,1,14).map((i,j)=>o_data('g'+j,s_rect(-10,i,10,i+1),a_static,e_data(()=>shift_f('g'+j,0),()=>plaInPoint([0,i-0.3]),1)))],[0,-9],[0,9],[[-9,0],[9,0]],1)
+//lv61
+{let r=0.2
+stages[60]=s_data([o_data('tri',shape([[-10,-1],[-10,1],[-8,0]]),a_move_i([[-3,0]],1,m_ease_in),e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-7,0])&&stage.used_node[2],1)),...[-5,-2,1].flatMap((i,i1)=>[0,1,2].map((j,k)=>o_data('sp'+(i1*3+k),s_circ(1,0,r),a_rotate(2,m_linear,1/0,j/3+i1/4),e_evt,initpos([i,0])))),o_data(1,s_icicle(.2),a_rail_i(6,[1,0]),[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([5,1]),1),e_data(()=>shift_s(1,0,3),p=>list(0,1,9).some(function(i){let p1=fromId('sp'+i).param;return p1.pos.add(p1.dir).dist(p.pos)<r}),1),e_data(()=>(shift_s(1,0,3),stage.wtf=1),p=>p.pos.x>7.8,1)],initpos([-9,0])),o_data('w',s_rect(8,10,10,-10),a_move_i([[3,0]],2,m_ease_in),e_data(p=>(p.anim[0].start=1),()=>stage.wtf,1)),...[-1,1].map((i,j)=>o_data('w'+j,s_rect(-10,10*i,-28,0.5*i),a_move_i([[18,0]],10),e_data(p=>(p.anim[0].start=1),()=>stage.wtf,1))),o_data('W',s_rect(-10,.5,-28,-.5),[a_move_i([[18,0]],10),a_move_i([[18,1]],1,m_linear,[18,0])],[e_data(p=>(p.anim[0].start=1),()=>stage.wtf,1),e_data(p=>(p.anim[0].start=0,p.anim[1].start=1),()=>plaInPoint([8.3,0])&&stage.used_node[2],1)]),...list(0,1,6).map(i=>o_data('f'+i,shape([[[8,10][i%2],10+i*2],[[9,9][i%2],12+i*2],[[8,10][i%2],14+i*2]]),a_rail_i(3,[0,-1],1/0,0),e_data(p=>(p.anim[0].start=1),()=>plaInPoint([9,-9]),1))),o_data('TrIgGER',s_inv,a_static,e_data(()=>(stage.used_node=[1,0,0]),()=>fromId('f5').param.pos.y<-34,1))],[5,8],[-9.5,0],[[5,0],[9,0],[9,-9]],1)}
+//lv62
+stages[61]=s_data([...[0,1,2,3].map(i=>o_data('w'+i,s_rect(8,-8.8,10,-9.2),a_static,e_evt,initpos([0,0],new pn(1,0.5*PI*i,1)))),...[-1,1].map((i,j)=>o_data('sw0'+j,s_rect(9.4*i,1,9.6*i,-1),a_swing(s_seg_v(8*i,-8*i),5,m_ease_in_out))),...[-1,1].map((i,j)=>o_data('sw1'+j,s_rect(1,9.4*i,-1,9.6*i),a_swing(s_seg(-8*i,8*i),5,m_ease_in_out))),...list(0,1,5).map(i=>o_data('a'+i,shape([[1,.5],[1,-.5],[2,0]]),a_rotate(1,m_linear,1/0,i/5)))],[-9.7,-7.5],[-9.7,9.5],[[-9.5,-1],[-1,-9.5],[9.5,-1],[1,9.5]],0,[],[0,0,9,0])
+//lv63
+{let v=()=>stage.used_node[3]?2:1
+stages[62]=s_data([...[-5.4,-4.8].map((i,j)=>o_gate('g'+j,s_rect(i,-10,i+0.2,-28),[-5,0],[0,18],18,m_ease_out)),o_gate('G0',s_rect(-5.2,-10,-4.8,-10.2),[-5,0],[0,18],3),...[-0.4,0.2].map((i,j)=>o_gate('g'+(j+2),s_rect(i,10,i+0.2,19),[0,9],[0,-9],9,m_ease_out)),o_gate('G1',s_rect(-0.2,10,0.2,10.2),[0,9],[0,-9],2.5),o_data('b',s_circ(0,0,1),a_swing(s_seg_v(2,-2),()=>v()*2)),...[0,1,2].map(i=>o_data('b'+i,s_circ(2.5+2.5*i,0,(3-i)/4),[a_data(1,1,1,1,1/0,0,(t,p)=>(p.pos.y=fromId('b').param.pos.y*(3-i)/4)),a_expand_i(2,m_ease)],e_data(p=>(p.anim[1].start=1),()=>v()-1,1),initpos([0,0],[1,0],0)))],[-8,0],[8,0],[[-5,0],[-5,9],[0,9],[0,0]])}
+//lv64
+stages[63]=s_data([...[[-5,1],[-5,-1],[0,1],[0,-1],[5,1],[5,-1]].map((i,j)=>o_gate('g'+j,s_rect(i[0],10*i[1],i[0]+0.2,0),[-0.2+i[0],0],[0,i[1]],1)),...[0,1,2].map(i=>o_data('sw'+i,s_rect(.2,.5,-.2,2),[a_rotate(2,m_linear,1/0,i/3),a_swing(shape([[-2.5,2],[-2.5,-2]]),2,m_ease_in_out)])),...[0,1].map(i=>o_data('sp'+i,s_L(-1,-1.7,2,2,0.3),a_rotate(1,m_linear,1/0,i/2),e_evt,initpos([2.5,0])))])
+//lv65
+stages[64]=s_data([...[-6,6].map((i,j)=>o_data('wtf'+j,s_rect(1,.2,-1,-.2),a_rotate(3,m_ease_in_out),e_data(()=>shift_s('wtf'+j,0,2),()=>plaInPoint([i-0.4,0]),1),initpos([i,0]))),o_data('b',s_circ(0,0,1),[a_resize_i(1.5,1,0.1,m_ease_out),a_resize_i(1,0.1,1,m_ease_out)],[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-6.4,0]),1),e_data(p=>(p.anim[0].start=0,p.anim[1].start=1),()=>plaInPoint([-0.3,0]),1),e_data(()=>shift_s('b',0,2),p=>plaInPoint([-1.2,0])&&p.size>=0.99,1)]),...[0,1,2,3].map(i=>o_data('s'+i,s_rect(4,.2,1,-.2),a_rotate_i(1.4,m_linear,1/0,(i+.5)/4),[e_data(p=>(p.anim[0].start=1),()=>plaInPoint([-6.4,0]),1),e_data(p=>(del('s'+i),spawn_sw(p.dir.mult(2.5),2)),()=>plaInPoint([5.6,0]),1)],initpos([0,0],new pn(1,(i+.5)*PI/2,1))))])
+//lv66. FINALLY decided to add e_trig
+stages[65]=s_data([o_data('g0',s_rect(5.8,1,6.2,-1),a_static,e_data(()=>shift_s('g0',0),()=>plaInPoint([6.4,0]),1)),o_data('g1',s_rect(.2,1,-.2,-1),a_rotate_i(3),[e_trig([6.4,0]),e_data(()=>shift_s('g1',0),()=>plaInPoint([-5.6,0]),1)],initpos([-6,0])),...[0,1,2,3].map(i=>o_data('s'+i,s_rect(4,.2,1,-.2),a_rotate_i(1.4,m_linear,1/0,(i+.5)/4),e_trig([4.5,0]),initpos([0,0],new pn(1,(i+.5)*PI/2,1)),0)),o_data('b',s_circ(0,0,1),[a_expand_i(2,m_ease),a_data(1,1,1,0,1/0,0,(t,p)=>(p.size=mixf(.6,1,m_ease_out(t))))],[e_trig([-1,0]),counter(e_trig([],1,0).fn,1,1,p=>p.anim[0].start)],initpos([0,0],[1,0],0)),o_data('t',s_inv,a_static,e_data(()=>[0,1,2,3].forEach(i=>(spawn('s'+i),spawn_sw(new pn(2.5,(i+.5)*PI/2,1),2))),()=>plaInPoint([6.4,0]),1))],[9,0],[-9,0])
+//lv67
+{let r=3,a1=a_move_i([[0,8]],5,m_ease_in),e1=e_trig([-1,6]),s=s_rect(-2,.2,2,-.2)
+stages[66]=s_data([o_data('g',s_rect(-.2,0,.2,10),a1,e1),o_data('b',s_circ(0,0,r),a1,e1),...list(0,1,8).map(i=>o_data('s'+i,s_rect(r+.2,.3,r+1.8,-.3),[a_rotate_i(-1,m_linear,1/0,i/8),a_rail_i(4)],[e_trig([r+1,9]),e_trig([-1,6],1,0)],initpos([0,0],new pn(1,i*PI/4,1)))),o_shoot('sh',s_circ(0,0,1),1.5,a_static,initpos([-10,-10]),1),o_data(1,s,a_static,[counter(p=>(stage.fadeObj.push([s,initpos(p.pos,p.dir)(),0]),p.pos.set(p.pos.add(p.dir.mult(4)))),1,1/0),e_dispose(1,15)],initpos(),0),...[-1,1].map((i,j)=>o_data('sp'+j,s_circ(i,0,.4),a_rotate(3),e_evt,initpos([0,-7])))],[9,9],[0,-9],[[r+1,9],[r+1,-r-1],[-r-1,-r-1],[-r-1,6],[-9,6],[-9,0],[0,0]])}
+//lv68
+stages[67]=s_data([o_data('c',s_cross(3,.3),[a_rotate(1),a_rotate_i(3)],e_data(e_trig([],1,0).fn,()=>fromId('b').param.pos.x<0.1,1),initpos([0,7])),o_data('b',s_circ(0,0,.3),a_rail_i(1.5,[-1,0],11),e_trig([5,-5]),initpos([11,7])),...[4,2,0,-2,-4].map((i,j)=>o_data('g'+j,s_rect(.3+i,-4,-.3+i,-8),a_move_i([[0,-3]],2),e_trig([.6+i,-5]))),...[4,2,0,-2,-4].map((i,j)=>o_data('wtf'+j,s_icicle(.3),a_rail_i(12,[0,-1]),[e_data(p=>(p.anim[0].start=1),()=>fromId('c').anim[1].start,1),e_data(p=>shift('wtf'+j,'l'+j,initpos(p.pos)()),p=>p.pos.y<=fromId('g'+j).param.pos.y-4,1)],initpos([i,11+2*j]))),...[0,1,2,3,4].map(i=>o_data('l'+i,s_rect(-20,-1.2,20,1.2),a_static,counter(()=>shift_f('l'+i,0),0.1,1),initpos(),0)),o_data('tri',s_star(0,0,1,3),[a_swing(s_seg(3,7),3,m_ease_in_out),a_rotate(2)])],[-9,5],[-8,-5],[[5,5],[5,-5]])
+//lv69
+stages[68]=s_data([o_data('wtf',s_rect(-4.5,-10,-5.5,8)),o_shoot('sh',s_circ(0,0,1),2,a_static,initpos([0,-10]),1),o_data(1,s_rect(-.8,-.2,.8,.2),a_static,[counter(p=>(spawn_sw(p.pos),p.pos.set(p.pos.add(p.dir.mult(2)))),.5,1/0),e_dispose(1,12)],initpos(),0)],[-9,-8],[-4,7],[[-6,-8],[-6,-5],[-4,-5],[-4,-2],[-6,-2],[-6,1],[-4,1],[-4,4],[-6,4],[-6,7]],0,[],[10,0,10,0])
+//lv70
+stages[69]=s_data([...list(-8,2,9).map(function(i,j){let t=rdmRange(.5,2);return o_data('sw'+j,s_rect(i-.3,-8,i+.3,-12),a_swing(s_seg_v(t,-t),2*t,m_linear,rdm()*t))}),...list(-5,2,6).map((i,j)=>o_data('b'+j,s_circ(0,i,.5),a_data(20,rdmRange(5,15),1,1,1/0,rdm()*20,(t,p)=>(p.pos.x=t-10)))),o_data('c1',s_L(4,-7,.5,2,.2),a_move_i([[.5,0],[.5,12.8]],2),e_trig([5,-6.8])),o_data('c2',s_L_left(6,-7,.5,2,.2),a_move_i([[-.5,0],[-.5,12.8]],2),e_trig([5,-6.8])),o_data('c3',s_L(6,-3,-.5,-2,-.2),a_move_i([[-.5,0],[-.5,13.2]],2),e_trig([5,-6.8])),o_data('c4',s_L_left(4,-3,-.5,-2,-.2),a_move_i([[.5,0],[.5,13.2]],2),e_trig([5,-6.8]))],[-9,-8],[-9,8],[[9,-8],[9,-7.5],[5,-7.5],[5,8]])
+//lv71
+stages[70]=s_data([o_data('c',s_cross(2.5,0.2),a_rotate(1),e_data(()=>shift_s('c',0,2),()=>plaInPoint([-5.6,0]),1),initpos([-5,0])),o_data('WTF',s_rect(10,10,30,-10),a_move_i([[-19.5,0],[0,0]],20,m_ease_in_out),e_trig([-5.6,0])),...[-1,1].map((i,j)=>o_data('w'+j,s_rect(20*i,10,0,10.5),a_move_i([[0,-9.5],[20*i,-39.5]],4),e_trig([-4,0]))),...[5,6,7].map((i,j)=>o_data('g'+j,s_rect(i,10,i+0.5,30),[a_move_i([[0,-20]],20),a_rail_i(10,[0,j-1?1:-1],10.3,0)],[e_trig([0,0]),e_trig([i-0.3,0],1,0)])),o_gate('0uch',s_cube(-14,0,1),[4.6,0],[25,0],3)])
+//lv72
+stages[71]=s_data([...[-1,1].map((i,j)=>o_shoot('sh'+j,s_inv,1,a_static,initpos([11,i]),1,[-1,0],0)),o_rail(1,s_cube(0,0,.5),2,[-1,0]),...[-1,1].map((i,j)=>o_data('w'+j,s_rect(20*i,10,21*i,-10),[a_rail(10,[-i,0],19,0),a_rail_i(10,[i,0],20,0)],[counter(e_trig([],1,0).fn,1.9,1),counter(()=>del('w'+j),4,1)],initpos(),0)),o_data('b',s_circ(-2,8,.5),a_move([[10,0]],1,m_linear,[-9,0]),counter(p=>(spawn('w0',p),spawn('w1',p)),2,8)),...[0,1,2].flatMap(i=>[s_cube(2,0,.5),s_rect(1.8,1,2.2,-1),shape([[1,.3],[1,-.3],[2,0]])].map((s,k)=>o_data(i+'sp'+k,s,[a_move_i([[5-5*k,6]],5,m_ease,[5-5*k,13]),a_rotate(2,m_linear,1/0,i/3)],e_trig([9,6]),initpos([78,91]))))],[-9,0],[-9,6],[[9,0],[9,6]])
+//lv73 - wonders how funny a "inverted" cross would look like
+stages[72]=s_data([...[-1,1].map((i,j)=>o_data('Sp'+j,s_rect(.3,.3,-3,-.3),a_data(PI/2,2,2,1,1/0,0,(t,p)=>p.dir.set(new pn(1,t*i,1))),e_evt,initpos([10,10*i]))),...[-1,1].map((i,j)=>o_data('w'+j,s_rect(4+i*0.5,-7,4+i*2,5))),...[-6,-4,-2,0,2,4].map((i,j)=>o_data('sw'+j,s_rect(3.5,i,4.5,i+0.2),a_swing(s_seg(-1,1),rdmRange(2,3)))),...[[2,0.2,0.5],[2,0.5,0.9],[2,1,1.6],[2,2,2.2],[1.4,2,1.6],[0.8,2,1]].map((i,j)=>o_data('c'+j,s_cross(i[0],i[1]),a_rotate(1.5),e_data(()=>shift_s('c'+j,0,2),()=>plaInPoint([-4,6-j*2+i[2]]),1),initpos([-4,6-j*2])))],[0,8],[-8,-8],[[8,8],[8,-8],[4,-8],[4,7],[-4,7],[-4,-8]])
+//lv74
+{let r=1,w=2
+stages[73]=s_data([...list(-10,2.75,8).map((i,j)=>o_data('e'+j,s_rect(-w,-.5,w,.5),a_data(1,1,1,1,1/0,0,(t,p)=>(p.pos.y+=2*dt*(stage.wtf||-1),p.pos.y>11&&(p.pos.y-=22),p.pos.y<-11&&(p.pos.y+=22))),e_evt,initpos([0,i]))),o_data('tr',s_inv,a_static,[e_data(()=>(stage.wtf=-0.2),()=>plaInPoint([-8,-8]),1),e_data(()=>(stage.wtf=1),()=>plaInPoint([8,-8]),1)]),...[-5,0,5].flatMap(i=>[0,1].map(j=>o_data(i+'sp'+j,s_circ(5,0,.4),a_rotate(1*(i?1:-1),m_linear,1/0,j/2),e_evt,initpos([i,0]))))],[-8,8],[8,9],[[-r,8],[-r,4],[-8,4],[-8,0],[-r,0],[-r,-4],[-8,-4],[-8,-8],[8,-8],[8,-6],[r,-6],[r,-2],[8,-2],[8,2],[r,2],[r,6],[8,6]])}
+//lv75
+stages[74]=s_data([...[0,1,2,3].map(i=>o_data('sp'+i,s_rect(1,.2,4,-.2),a_rotate(1,m_linear,1/0,i/4))),o_data('tr',s_inv,a_static,e_data(()=>0,()=>(pla.dist(new pn(0,0))>1&&(stage.used_node[0]=0),0),1)),...[1,2,3].map((i,j)=>o_data('b'+j,s_circ(9,0,1),a_static,e_data(p=>(del('b'+j),spawn_sw(new pn(9,0.5*PI*i,1))),()=>plaInPoint(new pn(7.7,0.5*PI*i,1)),1),initpos([0,0],new pn(1,0.5*PI*i,1)))),o_data('g',s_rect(7.5,2,8,-2),a_move_i([[0,-3]],2),e_data(p=>(p.anim[0].start=1),()=>[0,1,2].every(i=>indexFromId('b'+i)<0),1)),...[-8,-6].map((i,j)=>o_data('sw'+j,s_rect(i,2,i+.5,-2),a_swing(s_seg_v(-3,3),3,m_ease,j*3))),o_data('g0',s_cube(0,0,.5),[a_rotate(2),a_move_i([[0,-11]],3,m_linear,[0,7])],e_trig([0,6],1),initpos([0,7])),...[0,1].map(i=>o_data('Sp'+i,s_L(-1,-1,1.3,1.3,0.3),a_rotate(2,m_linear,1/0,i/2),e_evt,initpos([0,-7])))],[6,0],[9,0],[[0,0]])
+//lv76 - TOO MANY VARIABLES AAAAHH
+{let v1=20,t1=20/v1,v2=2,n2=5,t2=t1+(20+4*n2)/v2,v3=3,n3=5,i3=2,t3=t2+i3*n3+24/v3,t4=t3+t1,n5=10,i5=0.5,t5=t4+n5*i5+1
+stages[75]=s_data([...[-1,1].map((i,j)=>o_data('w'+j,shape([[10,2*i],[10,10*i],[11,10*i],[11,3*i],[30,3*i],[30,2*i]]),[a_move([[-20,0]],v1),a_move_i([[0,0]],v1,m_linear,[-20,0])],counter(e_trig([],1,0).fn,t3,1))),o_data('sh2',s_inv,a_static,counter(()=>(spawn(21,initpos([10,0])()),spawn(22,initpos([12,0])())),4/v2,n2,()=>timeAnim.time>t1)),o_data(21,shape([[0,2],[2,2],[1,-1]]),a_rail(v2,[-1,0],1/0,0),e_dispose(21,13),initpos(),0),o_data(22,shape([[0,-2],[2,-2],[1,1]]),a_rail(v2,[-1,0],1/0,0),e_dispose(22,13),initpos(),0),o_data('sh3',s_inv,a_static,counter(()=>[0,1,2].map(i=>spawn(31+i,initpos([12,0])())),i3,n3,()=>timeAnim.time>t2)),...[0,1,2].map(i=>o_data(31+i,shape([[.5,1],[-.5,1],[0,2.5]]),[a_rotate(1,m_linear,1/0,i/3),a_move([[-15,0]],v3,m_linear,[12,0])],e_dispose(31+i,13),initpos(),0)),o_data('sh5',s_inv,a_static,counter(()=>spawn(51,initpos([10,rdmRange(-9,9)])()),i5,n5,()=>timeAnim.time>t4)),o_data(51,s_icicle(.5),a_rail(5,[-1,0]),e_data(p=>shift(51,52,initpos(p.pos)),p=>(p.pos.x<=5),1),initpos(),0),o_data(52,s_rect(-16,-1,6,1),a_static,counter(()=>shift_f(52,0),0.1,1),initpos(),0),o_data('tr',s_inv,a_static,e_data(()=>0,()=>timeAnim.time>t5?(stage.used_node[0]=0,1):(stage.used_node[0]=1,0),1)),...[-2,-1,0,1,2].map((i,j)=>o_data('sw'+j,s_rect(-.2,2,.2,-2),a_rotate(2),e_data(()=>shift_s('sw'+j,0,2),()=>plaInPoint([i-0.5,0]),1),initpos([i,0]))),...[-1,1].map((i,j)=>o_data('g'+j,s_rect(0,0,-0.5,10*i),a_data(1,1,0,0,1,0,(t,p)=>p.dir.set(new pn(1,t*i,1))),e_trig([2.5,0]),initpos([5.5,-10*i])))],[-8,3],[8,0],[[-8,0]],1)}
+//lv77. weirdest one ever
+{let v=1.5,a1=a_data(1,1,1,1,1/0,0,(t,p)=>(p.pos.set(p.pos.rot(v*dt,pla)))),a2=(x,y=0)=>a_data(2*PI,x,1,1,1/0,y,(t,p)=>p.dir.set(new pn(1,t+timeAnim.time*v,1)))
+stages[76]=s_data([...[0,1,2,3].map(i=>o_data('wtf'+i,s_rect(7,6,8,-6),[a1,a2(0,0.5*PI*i)])),...[0,1].map(i=>o_data('WTF'+i,s_circ(3,0,.5),[a1,a2(3,PI*i)])),...[0,1,2,3].map(i=>o_data('WtF'+i,s_rect(.3,2,-.3,-2),[a1,a2(2)],e_evt,initpos(new pn(6,0.5*PI*i,1))))],[0,0],[0,-1],[[6,0],[6,6],[-6,6],[-6,-6],[0,-6]],0,[],[0,0,0,0],6)}
+//lv78
+stages[77]=s_data([o_data('C',s_cube(1,1,9),a_static,e_data(()=>shift_f('C',0),()=>plaInPoint([6,-9]),1)),...[0,1].map(i=>o_data('sp'+i,s_rect(.5,.2,2,-.2),a_rotate(2,m_linear,1/0,i/2),e_evt,initpos([-9,5]))),...list(-8,2,9).map((i,j)=>o_data('sw'+j,s_rect(i,-8,i+1,-6),a_data(2,4,2,1,1/0,0,(t,p)=>p.pos.set(new pn(floor(timeAnim.time)%2,-2*m_pow(3)(abs(mod(1+2*timeAnim.time,2)-1))))),e_data(()=>shift_f('sw'+j,0),()=>plaInPoint([6,-9]),1))),...[shape([[8,0],[8,5],[-5,5]]),shape([[5,0],[-8,0],[-8,5],[-7,5]])].map((i,j)=>o_data('w'+j,i,a_move_i([[0,-6]],1.5),e_trig([6,0]))),o_data('g',s_rect(0,0,-1,6),a_data(PI/2,1.6,0,0,1,0,(t,p)=>p.dir.set(new pn(1,-t,1))),e_trig([-7,0]),initpos([-10,-2]))],[-9,9],[7,5],[[-9,-9],[6,-9],[6,0],[-8,0],[-8,5]],1,[],[0,0,0,0],5)
+//lv79
+{let S=3,v=0.5
+stages[78]=s_data([...[-5,0,5].flatMap(i=>[0,1,2].map(j=>o_data(i+'sp'+j,s_spike(.3),[a_spin(s_circ(-4,i,.9,1),1.8*PI*v,m_linear,0.6*PI*j),a_rotate(-2*v,m_linear,1/0,-j/3)],e_evt,initpos([-4,i])))),...[3,6].map((i,j)=>o_data('sw'+j,s_rect(-2,.2,2,-.2),[a_rotate(2),a_swing(shape([[-2,i],[2,i]],2,m_ease_in_out,j))])),...[-1,1].flatMap(i=>list(0,1,5).map(j=>o_data(i+'g'+j,s_rect(0,0,.2,-i*S*3),a_data(PI,1,0,0,1,0,(t,p)=>p.dir.set(new pn(1,t*i,1))),counter(e_trig([]).fn,0.3*(j+1),1,()=>plaInPoint([1.8,0])),initpos([2,i*S])))),...[3,5,7].map((i,j)=>o_data('b'+j,s_circ(0,0,1),[a_swing(shape([[i,1],[i,-1]]),1,m_linear,j/2),a_resize(rdmRange(0.5,1.5),0,1,m_ease_in,1/0)])),o_data('tr',s_inv,a_data(10,3,0,0,1,S,t=>(stage.vs=t)),e_trig([8,0]))],[-8,-8],[8,8],[[-4,-8],[-4,8],[0,8],[0,0],[8,0]],0,[],[0,0,0,0],S)}
+//lv80
+{let s=(i,j,k)=>s_rect(i*j,k,(i+.2)*j,-k)
+stages[79]=s_data([...[-1,1,-1].flatMap((i,j)=>[-1,1].map(k=>o_data(j+'b'+k,s_rect(i*8+k*1.8,5*(j-1)+1,i*8+k*2,5*(j-1)-1),a_move_i([[-16*i,0]],2),e_trig([i*8,5*(j-1)])))),...[[2,.5],[6,1]].flatMap(i=>[-1,1].map(j=>o_data(i[1]+'sp'+j,s(i[0],j,i[1]),a_static,counter(p=>(stage.fadeObj.push([s(i[0],j,i[1]),initpos(p.pos,p.dir,1)(),0]),p.dir.set(p.dir.rot(2*i[1]/i[0]))),.5,1/0)))),...[-1,1].map(i=>o_data('Sp'+i,s(4,i,.7),a_static,counter(p=>(spawn_sw(p.dir.mult(4*i)),p.dir.set(p.dir.rot(.5))),0.3,1/0)))],[-8,8],[8,-8],[[-8,5],[8,5],[8,0],[-8,0],[-8,-5],[8,-5]],1,[...[-5,0,5].map(i=>s_rect(-10,i+.2,10,i-.2)),...[[-8,7.5],[8,2.5],[-8,-2.5]].map(i=>s_rect(i[0]-.2,i[1]+2.5,i[0]+.2,i[1]-2.5))])}
+//lv81
+stages[80]=s_data([o_data('sh',s_inv,a_static,counter(()=>spawn('c',initpos([-12,0])()),2,5)),o_noInit(o_data('c',s_C(1.3,1,.5,6),a_rot_offset(2,-2,[1,0]),e_dispose('c',15))),o_data('sw',s_rect(4.5,1,5,-1),a_swing(s_seg_v(-2,2),2)),o_gate('g',s_rect(-8.5,10,-8,-10),[-7.7,0],[0,10.5],2),o_data('wtf',s_icicle(.4),a_rail_i(10),[counter(e_trig([]).fn,5,1,()=>fromId('g').anim[0].start),e_data(p=>shift('wtf','WTF',initpos(p.pos)()),p=>abs(fromId('sw').param.pos.y)<1?inSeg(p.pos.x,4.5,5):p.pos.x>10,1)],initpos([-12,0])),o_data('WTF',s_rect(-20,10,0,-10),a_static,counter(()=>(shift_f('WTF',0),list(0,1,7).map(i=>spawn('g'+i))),0.1,1),initpos(),0),...list(-6,2,7).map((i,j)=>o_data('g'+j,s_rect(i,10,i-0.5,30),[a_move([[0,-20]],20),a_move_i([[0,0.5+(j+1)-10]],5,m_ease_in,[0,-20])],e_trig([i+.3,0],1,0),initpos(),0))],[9,0],[-9,0])
+//lv82
+stages[81]=s_data([...[-1,1].map(i=>o_data('g'+i,s_rect(0,0,-.5,11*i),a_data(1,.3,0,0,1,0,(t,p)=>p.dir.set(new pn(1,-i*m_ease_in(t)*PI/2,1))),e_trig([.3+i*5,0]),initpos([5*i,-10*i]))),...[-1,1].map(i=>o_data('b'+i,s_circ(0,0,3),[a_expand_i(1,m_ease,.1),a_move_i([[0,i*5]],3,m_ease_in)],[e_trig([1,0]),e_data(p=>(e_trig([],1,0).fn(p),spawn('sp'+i)),p=>plaInPoint([3.3,0])&&p.size>=1,1),counter(p=>spawn_sw(p.pos,5),5/3,1,p=>p.anim[1].start)],initpos([0,0],[1,0],.1))),...[-1,1].map((i,j)=>o_noInit(o_data('sp'+i,s_circ(0,0,1.5),[a_resize(1,0.2,.6,m_linear,1/0),a_spin(s_circ(0,0,1.5,1),2,m_linear,j*1.5*PI)])))],[9,0],[-9,0])
+//lv83
+{let a=a_data(1,1,1,1,1/0,0,(t,p)=>p.dir.set(p.dir.rot(dt*2)))
+stages[82]=s_data([o_data('a',shape([[8,6.1],[7,6.1],[7,6.5],[6.5,6],[7,5.5],[7,5.9],[8,5.9]])),...[-5,0,5].flatMap(i=>[-1,1].map(j=>o_data(i+'g'+j,s_rect(i,10*j,i-.2,0),[a_move_i([[0,j]],1),a_move_i([[0,0]],5,m_linear,[0,j])],[e_trig([i+.2,0]),counter(e_trig([],1,0).fn,1,1,p=>p.anim[0].start),counter(()=>spawn_sw([i,0]),1/5,1,p=>p.anim[1].start)]))),...[-1,1].map((i,j)=>o_data('sw'+j,shape([[-3,0],[-2,0],[-2.5,i]]),a_swing(s_seg_v(0,i),1,m_ease_in_out))),...[0,1].map(i=>o_data('sp'+i,s_rect(.5,1,.8,-1),a,e_data(p=>shift('sp'+i,'Sp'+i,p),()=>abs(pla.x-2.5)<1,1),initpos([2.5,0],[2*i-1,0]))),...[0,1].map(i=>o_data('Sp'+i,s_rect(.5,30,30,-30),a,e_data(p=>shift('Sp'+i,'sp'+i,p),()=>abs(pla.x-2.5)>1,1),initpos([2.5,0]),0)),...[-1,1].map(i=>o_data('G'+i,s_rect(-4,10*i,-1,20*i),[a_move_i([[0,-10*i]],20),a_move_i([[0,0]],1,m_linear,[0,-10*i])],[e_trig([-2.5,0]),counter(p=>(e_trig([],1,0).fn(p),spawn_sw([-2.5+1.5*i,0],2)),.5,1,p=>p.anim[0].start)]))],[9,0],[-9,0])}
+//lv84
+stages[83]=s_data([o_data('b',s_circ(0,0,1),a_swing(s_seg_v(2,-2),2)),...[-1,1].map(i=>o_data('sh'+i,s_inv,a_static,counter(()=>spawn('b'+i,initpos(pla,new pn(1,PI*sin(timeAnim.time*114.514),1),10)()),2,1/0))),...[-1,1].map(i=>o_data('b'+i,s_circ(i*3,0,2),[a_resize(0.2,10,0,m_ease_out),a_data(1,1,1,1,1/0,0,(t,p)=>p.dir.set(p.dir.rot(dt*2)))],counter(()=>del('b'+i),10,1),initpos(),0)),o_data('t',s_inv,a_data(9,5,2,1,1/0,9,t=>(stage.vs=m_ease_in_out(t/9)*9+1)))],[9,0],[-9,0])
+//lv85
+{let s=s_rect(.1,1,-.1,-1),a=a_data(1,1,1,1,1/0,0,(t,p)=>p.dir.set(p.dir.rot(.2*dt))),a1=a_rail_i(1,[0,-1],2,0),a2=t=>a_swing(shape([[t,.5],[t,-.5]]),.5),e1=t=>e_trig([t-.2,0],1),e3=(i,t)=>e_data(()=>shift_s(i,0),()=>plaInPoint([t-.2,0]),1)
+stages[84]=s_data([...[-1,1].flatMap(i=>list(0,1,5).map(j=>o_data(i+'s'+j,s,a,e_evt,()=>initpos([rdmRange(-8,8),rdmRange(2,3)*i],new pn(1,rdm()*6.28,1))()))),...[-6,0,6].map(i=>o_data('s'+i,s,[a,a1],e1(i),()=>initpos([i,0],new pn(1,rdm()*6.28,1))())),...[-4,2].map(i=>o_data('s'+i,s,[a,a2(i)],e_evt,()=>initpos([i,0],new pn(1,rdm()*6.28,1))())),...[-2,4].map(i=>o_data('s'+i,s,a,e3('s'+i,i),()=>initpos([i,0],new pn(1,rdm()*6.28,1))())),o_data('line',shape([[0,10],[0,0],[0,-10]]),a_data(1,1,1,1,1/0,0,(t,p)=>(p.pos.x=pla.x-0.1)),e_evt,initpos([-10,0]))])}
+//lv86
+{let a=a_data(1,1,0,0,1,0,(t,p)=>p.dir.set(new pn(1,PI*m_ease_in_out(t),1))),e=t=>[e_trig([t-0.7,0]),counter(e_trig([],1,0).fn,2,1,p=>p.anim[0].start)],s=s_cube(0,0,.5),I=t=>initpos([t,0]);let a1=d=>a_rail_i(3,d,20,0),a2=i=>a_data(1,2,0,0,1,0,(t,p)=>(p.size=1-t),()=>shift_s(i,0)),a3=i=>a_data(1,1,0,0,1,1,()=>0,()=>shift(i,'wtf'))
+stages[85]=s_data([...[-1,1].map(i=>o_data('A'+i,shape([[10,i],[-10,6*i],[-10,10*i],[10,10*i]]))),o_data('t',s_inv,a_data(1,1,1,1,1/0,0,()=>(stage.vs=mixf(10,1,(pla.x+10)/20)))),o_shoot('sh',s_inv,3,a_static,initpos([11,0]),1,[-1,0],0),o_data(1,s_rect(.1,1,-.1,-1),a_rot_offset(1,1,[-1,0]),[e_dispose(1,12),e_data(()=>shift_s(1,0),p=>plaInPoint([p.pos.x-.2,0]),1)],initpos(),0),o_data('g1',s,[a,a1([0,-1])],e(-6),I(-6)),o_data('g2',s,[a,a1([1,0])],e(-3),I(-3)),o_data('g3',s,[a,a1([0,1])],e(0),I(0)),o_data('g4',s,[a,a2('g4')],e(3),I(3)),o_data('g5',s,[a,a3('g5')],e(6),I(6)),o_data('wtf',s_cube(6,0,1),a_static,counter(()=>shift_f('wtf',0),0.1,1),initpos(),0)])}
+//lv87
+{let t1=1,i2=.2,n2=20,t2=t1+n2*i2+2,i3=2,n3=5,t3=t2+n3*i3+3,t4=t3+2,T=()=>fromId('timer').anim[0].time
+stages[86]=s_data([o_data('timer',s_inv,a_data(1/0,1,1,0,1,0,emptyfunc),e_trig([-2,2])),o_data('t',s_inv,a_data(1,1,1,1,1/0,0,()=>(stage.used_node[4]=T()>t4?0:1,[0,1,2,3].forEach(i=>(pla.dist(stage.node[i])>1&&(stage.used_node[i]=0)))))),...[0,1,2,3].map(i=>o_data('tri'+i,shape([[6,6],[10,12],[12,10]]),a_resize_i((10/6-1)/t1,10/6,1,m_ease),[e_trig([-2,2]),counter(p=>[-1,0,1].forEach(function(j,k){let p1=new pn(14,PI*(i+.5)/2,1);spawn('b'+(k*4+i),initpos(p1,new pn(1,j*PI/8,1).rotTo(toPla(p1))))}),i3,n3,()=>T()>t2)],initpos([0,0],new pn(1,PI*i/2,1),2))),o_data('sh',s_inv,a_rotate(1),counter(p=>spawn(1,initpos(p.dir.mult(15),p.dir.mult(-1))()),i2,n2,()=>T()>t1)),o_data(1,s_rect(0,.5,2,-.5),a_rail(5),counter(p=>shift(1,2,p),1,1),initpos(),0),o_data(2,s_rect(0,.5,30,-.5),a_static,counter(()=>shift_f(2,0),.1,1),initpos(),0),...list(0,1,12).map(i=>o_rail('b'+i,s_circ(0,0,.4),4)),...[0,1,2,3].map(i=>o_data('ic'+i,s_icicle(.5),a_rail_i(15,new pn(1,PI+PI*(i+.5)/2,1)),[e_data(e_trig([]).fn,()=>T()>t3,1),counter(()=>shift('ic'+i,'l'+i),1,1,p=>p.anim[0].start)],initpos(new pn(15,PI*(i+.5)/2,1)))),...[0,1,2,3].map(i=>o_data('l'+i,s_rect(0,.5,10,-.5),a_static,counter(()=>shift_f('l'+i,0),.1,1),initpos([0,0],new pn(1,PI*i/2,1)),0)),o_data('wall',s_rect(-10,10,10,30),a_move_i([[0,-20]],10),e_data(e_trig([]).fn,()=>T()>t4,1))],[-2,8],[-4,-8],[[-2,-2],[-2,2],[2,-2],[2,2],[-2,-8]],1)}
+//lv88 - had to Split and Merge the walls all the time
+{let r=0.5,f=t=>(p=>stage.used_node[t]&&p.anim[0].num)
+stages[87]=s_data([...[-1,1].map((i,j)=>o_data(j*2+1,s_rect(10*i,-12,r*i,8),a_move_i([[0,2]],2,m_ease_in),e_trig([0,8.5]))),o_data(2,s_rect(-r,-8-r,r,-10)),o_data(4,s_rect(-r,15+2*r,r,r+33),a_move_i([[0,-23-r]],3),[e_trig([0,8.5]),e_data(()=>Shift([1,2,3,4],[5,6,7,'sw0','sw1','sw2']),f(1),1)]),...[-3,0,3].map(i=>o_data('sp'+i,s_rect(.1,1,-.1,-1),[a_move_i([[0,i]],1,m_ease,[-2,i]),a_rotate(2)],[e_data(()=>shift_s('sp'+i,0),()=>plaInPoint([0,i+.3]),1),e_trig([0,8.5])],initpos([-2,i]))),o_noInit(o_data(5,s_rect(-8-r,-8-r,-r,r-8),a_move([[-10,0]],5))),o_noInit(o_data(6,s_hollowRect(-10,-10,10,10,-8-r,-8-r,r,r-8))),o_data(7,s_rect(3+r,-8-r,r+11,-8+r),a_move([[-11,0]],3),e_data(()=>Shift([5,6,7,'sw0','sw1','sw2'],[8,9,10,'g0','g1']),f(2),1),initpos(),0),...[-6,-4,-2].map((i,j)=>o_data('sw'+j,s_rect(i,-10,i+.5,-6),a_swing(s_seg_v(3,-3),j+2),e_evt,initpos(),0)),o_noInit(o_data(8,s_rect(-8-r,-8+r,r-8,r+4),a_move([[0,12]],4,m_ease_in))),o_noInit(o_data(9,s_hollowRect(-10,-10,10,10,-8-r,-8-r,r-8,r+4))),o_data(10,s_rect(-8-r,-23-r,r-8,-11-r),a_move([[0,15]],3,m_repeat(m_ease_in_out,10)),e_data(()=>Shift([8,9,10,'g0','g1'],[11,12,13,'G']),f(3),1),initpos(),0),...[-2,1].map((i,j)=>o_data('g'+j,s_rect(-9,i,-7,i+.3),a_move_i([[-3,0]],3),e_trig([-8,i-.3]),initpos(),0)),o_noInit(o_data(11,s_rect(r-8,4-r,r+8,4+r),a_rail(5,[1,0],20,0))),o_noInit(o_data(12,s_hollowRect(-10,-10,10,10,-8-r,4-r,r+8,4+r))),o_data(13,s_rect(-24-r,4-r,-8-r,4+r),a_move([[16,0]],3,m_pow(5)),e_data(()=>Shift([11,12,13,'G'],[...list(14,1,7),'c']),f(4),1),initpos(),0),o_noInit(o_gate('G',s_rect(0,5,1,10),[-.5,4],[0,-7],5)),o_data(14,s_rect(8-r,-8-r,8+r,4-r),a_static,e_data(()=>shift_f(14,0),()=>plaInPoint([8,4.3-r]),1),initpos(),0),o_data(15,s_rect(4-r,-8-r,8-r,r-8),a_static,e_data(()=>shift_f(15,0),()=>plaInPoint([8.3-r,-8]),1),initpos(),0),o_data(16,s_rect(4-r,r-8,4+r,r),a_static,e_data(()=>shift_f(16,0),()=>plaInPoint([4,r-8.3]),1),initpos(),0),o_data(17,s_rect(8-r,r-8,8+r,r+4),a_move_i([[0,0]],3,m_pow(3),[0,12]),counter(e_trig([]).fn,0,1),initpos([0,12]),0),o_data(18,s_rect(4+r,-r-8,8+r,r-8),a_move_i([[0,0]],3,m_ease,[4,0]),counter(e_trig([]).fn,4,1),initpos([4,0]),0),o_data(19,s_rect(4-r,-r-8,4+r,-r),a_move_i([[0,0]],3,m_linear,[0,-8]),[counter(e_trig([]).fn,16/3,1),e_data(()=>Shift([...list(14,1,7),'c'],[21,22,23]),f(7),1)],initpos([0,-8]),0),o_data(20,shape([[10,-10],[10,10],[-10,10],[-10,-10],[10,-10],[8+r,-8-r],[4-r,-8-r],[4-r,r],[4+r,r],[4+r,r-8],[8-r,r-8],[8-r,4+r],[8+r,4+r],[8+r,-8-r]]),a_static,e_evt,initpos(),0),o_data('c',s_cross(3,.2),a_rotate(-1),e_evt,initpos([6,-6]),0),o_noInit(o_data(21,s_rect(-4-r,-r,4-r,r),a_move([[-8,0]],2))),o_noInit(o_data(22,s_hollowRect(-10,-10,10,10,-4-r,-r,4+r,r))),o_noInit(o_data(23,s_rect(r+5,-r,r+13,r),a_move([[-9,0]],2)))],[-8,8.5],[-4,0],[[0,8.5],[0,-8],[-8,-8],[-8,4],[8,4],[8,-8],[4,-8],[4,0]],0,[],[0,0,0,0])}
+//lv89
+stages[88]=s_data([...list(-9,2,10).flatMap((i,i1)=>[-1,1].map((j,j1)=>o_data('g'+(j1+2*i1),s_rect(i-1,i1>0?0:j*0.2,i+1,10*j),a_move_i([[0,j*(i1+1)*0.2]],i1>0?2:0),e_trig([i-1.3,0])))),o_data('c',s_rect(10,10,30,-10),a_data(19.5,4,0,0,1,0,(t,p)=>(p.pos.x=-19.5*m_repeat(t=>min(1,m_bezier0(.5,-1,1,0)(t)),5)(t/19.5))),[e_data(p=>(e_trig([]).fn(p),list(0,1,5).map(i=>spawn('G'+i))),()=>plaInPoint([7.7,0]),1),e_data(()=>(shift_f('c',0),list(0,1,20).forEach(i=>shift_f('g'+i,0))),p=>p.anim[0].num,1)]),...list(-9,4,5).map((i,j)=>[i,(-1)**j]).map((i,j)=>o_data('G'+j,s_rect(i[0]-.2,2*i[1],i[0]+.2,14*i[1]),[a_move_i([[0,-4*i[1]]],5),a_move_i([[0,0]],3,m_ease_in,[0,-4*i[1]])],[e_trig([i[0],0]),e_data(e_trig([],1,0).fn,()=>plaInPoint([i[0]-0.5,0])&&indexFromId('c')<0,1)],initpos(),0)),o_gate('gg',s_rect(8.5,1,8.8,-1),[8.2,0],[0,2],1)])
+//lv90
+stages[89]=s_data([o_data('a',s_alley(-8,8,2,1,3),a_data(8,4,0,0,1,0,(t,p)=>(stage.vs=2+t)),e_trig([-8,6])),...[-1,1].map(i=>o_gate('g'+i,s_rect(-8,6,-8+i,7),[-8,7.3],[i,0],0.5,m_ease_in)),...[2,4,6].flatMap((i,i1)=>[-1,1].map(j=>o_data(i+'sw'+j,s_rect(i*j,-i/3,i*j*1.1,i/3),a_swing(s_seg_v(i*j*1.05,-i*j*1.05),i,m_ease_in_out,i1==1?i*2:0)))),...[2,4,6].flatMap((i,i1)=>[-1,1].map(j=>o_data(i+'sw'+j,s_rect(-i/3,i*j,i/3,i*j*1.1),a_swing(s_seg(i*j*1.05,-i*j*1.05),i,m_ease_in_out,i1==1?i*2:0)))),o_data('c',s_C(2,1.7,0.5,5),a_rotate(1.5),e_evt,initpos([9,0]))],[-8,8],[0,8],[[-8,0],[9,0],[9,-6],[0,-6]],1,[],[0,0,0,0],2)
+//lv91
+stages[90]=s_data([o_data('floor',s_rect(-10,-10,10,-0.2)),o_data('fl00r',shape([...list(-10,2,10).flatMap(i=>[[i,0],[i+1,-2]]),[10,0],[10,-12],[-10,-12]]),a_swing(s_seg_v(-1,1),2)),...list(-8,4,5).map((i,j)=>o_data('sw'+j,s_rect(i-1,10,i+1,20),a_swing(s_seg_v(0,-10),(sin(j)+2)*5,m_ease_in)))],[-9.4,0])
+//lv92
+stages[91]=s_data([o_data('c',s_circ(0,0,2)),...list(0,1,8).map(i=>o_data('e'+i,s_circ(0,0,.3),a_data(2*PI,rdmRange(0.5,1.5),1,1,1/0,rdm()*6.3,(t,p)=>p.pos.set(new pn(cos(t)*7.5,sin(t)*2.5).rot(PI*i/4))))),o_data('sh',s_circ(10,10,2),a_static,counter(()=>[-1,0,1].map((i,j)=>spawn('b'+j,initpos([10,10],new pn(1,i*PI/8,1).rotTo(toPla(new pn(10,10))))())),2,1/0)),...[0,1,2].map(i=>o_noInit(o_data('b'+i,s_rect(0,.2,2,-.2),a_rail(3),counter(p=>shift('b'+i,'l'+i,initpos(p.pos,p.dir)()),2,1)))),...[0,1,2].map(i=>o_noInit(o_data('l'+i,s_rect(0,.2,30,-.2),a_static,counter(()=>shift_f('l'+i,0),0.1,1))))],[-8,5],[-8,-8],[[8,5],[8,-5],[-5,-5],[-5,8],[5,8],[5,-8]])
+//lv93
+{let v=2.5,n=3,T=4*2*8/v
+stages[92]=s_data([o_data('trig',s_inv,[a_data(1,1,1,1,1/0,0,()=>[1,2,3,4].forEach(i=>pla.dist(stage.node[i])>1&&(stage.used_node[i]=0))),a_data(1,1,1,1,1/0,0,()=>(stage.used_node[0]=timeAnim.time>T*n?0:1))]),o_data('bg',s_hollowSquare(10,8.5)),...[-1,1].map(i=>o_data('wtf'+i,s_rect(0,1,i,-1),[a_resize(1/(n*T),1,6,m_repeat(m_compress(m_ease_out,T/2,0),4*n)),a_move_i([[i*2,0]],2,m_ease_in)],counter(e_trig([],1).fn,T*n,1))),...[0,1,2].map(i=>o_data('sp'+i,s_rect(.2,.5,-.2,2),a_rotate(2,m_linear,1/0,i/3),e_evt,initpos([0,8]))),...[-4,0,4].map((i,j)=>o_data('sw'+j,s_rect(-10,i,-6,i+0.4),a_swing(s_seg(-3,3),j+PI))),...[-3,3].map((i,j)=>o_data('Sp'+j,s_rect(3,.2,-3,-.2),a_rotate(-1-j/PI),e_evt,initpos([7,i]))),o_data('0uch',s_rect(-3,-7,3,-6.7)),...[-2,0,2].map(i=>o_data('g'+i,s_rect(i,-9,i+0.3,-7),a_move_i([[0,-1.5],[0,0]],t=>t>1.5?5:1,m_linear,[0,0],()=>spawn_sw([i+0.15,-7])),e_data(p=>(e_trig([]).fn(p),p.anim[0].num=0,p.anim[0].time>=2.99&&(p.anim[0].time=0)),()=>plaInPoint([i+0.6,-8]),1/0))),...[0,1,2,3].map(i=>o_data('sq'+i,s_cube(0,0,.5),a_spin(shape([[8,8],[8,-8],[-8,-8],[-8,8]]),v,m_linear,i*16)))],[-4,8],[0,0],[[0,8],[8,8],[8,-8],[-8,-8],[-8,8]])}
+//lv94 - f  k that creature
+{let N=5,g1=6,d=(t)=>new pn(1,PI/2+sin(t)*0.2,1),P=(t)=>new pn(9,0).add(d(timeAnim.time).mult(2.5)),a=a_data(1,1,1,1,1/0,0,(t,p)=>p.pos.set(P())),V=function(p,t,g){let x=p.x,y=p.y;return new pn(x/t,y/t+g*t/2)}
+stages[93]=s_data([o_data('floor',s_rect(-10,-.2,10,-10)),...list(-8,3,5).map(i=>o_data('g'+i,s_rect(i,-1,i+.4,1),a_move_i([[0,-1.2]],1,m_ease_in,[0,0],()=>(del('g'+i),[1,3,5].forEach(xx=>spawn_sw([i+.2,-0.2],xx)))),e_trig([i-0.3,0]))),o_data('body',shape([[0,0],[1.5,.5],[1.5,-.5]]),a_data(1,1,1,1,1/0,0,(t,p)=>p.dir.set(d(timeAnim.time))),e_evt,initpos([9,0])),...[-1,1].map(i=>o_data('eye'+i,s_circ(.4*i,.4,.2),a)),o_data('mouth',s_rect(-.4,-.4,.4,-.2),a),o_data('head',s_hollowSquare(1,.8),a,counter(()=>list(0,1,N).forEach(i=>spawn('b'+i,initpos(P(),V(pla.subt(P()).add(rdmRect(-6,-6,6,6)),3,g1))())),2,1/0)),...list(0,1,N).map(i=>o_data('b'+i,s_rect(-1,-.2,1,.2),a_fall(g1),e_data(p=>shift('b'+i,'l'+i,initpos([p.pos.x,0])()),p=>p.pos.y<=-0.5,1),initpos(),0)),...list(0,1,N).map(i=>o_data('l'+i,s_rect(-.5,10,.5,-10),a_static,counter(()=>shift_f('l'+i,0),1,1),initpos(),0))],[-9,0],[7,0])}
+//lv95
+stages[94]=s_data([o_data('fl00r',s_rect(-20,0,30,10),a_data(PI/2,2,0,0,1,0,(t,p)=>p.dir.set(new pn(1,t,1))),e_trig([-8,0]),initpos([-9,1])),...list(-6,3,5).map((i,j)=>o_data('sp'+j,s_star(0,0,1,3),a_rotate(2),e_data(()=>(shift_s('sp'+j,0,1.5),stage.ouch=2),()=>plaInPoint([i+0.8,0]),1),initpos([i,0]))),...[0,1].map(i=>o_data('b'+i,s_circ(0,0,.5),a_data(1,1,1,1,1/0,0,(t,p)=>p.pos.set(pla.add(new pn(2,PI*i+timeAnim.time*3,1)))),e_data(()=>shift_s('sp'+(stage.wtf-1),0,3),function(p){for(let i=0;i<5;i++){if(p.pos.dist(fromId('sp'+i)?.param?.pos||new pn(78,91))<1){stage.wtf=i+1;return 1}}return 0},1))),o_data('c',s_rect(-10,-10,10,-25),[a_rail_i(2,[0,1],1.8,0),a_data(1,1,1,0,1/0,0,(t,p)=>p.anim[1].num&&(p.pos.y=min(p.pos.y+dt*5,11)))],[e_data(p=>(p.anim[0].start=1,p.anim[0].num=p.anim[0].time=0,stage.ouch--),()=>!stage.wtf&&stage.ouch>0,1/0),e_data(e_trig([],1,0).fn,()=>stage.wtf,1)]),o_data('s',s_circ(0,0,.5),[a_rail_i(2,[0,1],1.8,0),a_data(1,2,0,0,1,0,(t,p)=>(p.size=1-t),()=>shift_s('s',0,2))],[e_data(p=>(p.anim[0].start=1,p.anim[0].num=p.anim[0].time=0,stage.ouch--),()=>!stage.wtf&&stage.ouch>0,1/0),e_data(e_trig([],1,0).fn,()=>stage.wtf,1)],initpos([0,-8]))],[9,0],[-8,8],[[-8,0]])
+//lv96
+stages[95]=s_data([...[-5,0,5].flatMap(i=>[s_circ(i,10,2),s_rect(i-.2,10,i+.2,30)].map((s,j)=>o_data(i+'sw'+j,s,a_swing(s_seg_v(0,-20),20,m_ease_in)))),...[-3,3].flatMap(i=>[s_circ(3,0,1.5),s_rect(0,-.1,3,.1)].map((s,j)=>o_data(i+'sp'+j,s,a_rotate(-1.3),e_evt,initpos([i,-10])))),...[-3,3].flatMap(i=>[0,1].map(j=>o_data(i+'Sp'+j,s_circ(0,0,1),[a_spin(s_circ(i,-3,1.5,1),2,m_linear,PI*j*1.5),a_resize(.5,0,1,m_ease_out,1/0)]))),o_data('sh',s_inv,a_static,counter(()=>spawn(1,initpos(pla.add(new pn(2,rdm()*6.3,1)))()),1,1/0)),o_data(1,s_circ(0,0,.2),a_static,counter(p=>(del(1),stage.fadeObj.push([s_circ(0,0,3),p,0])),1,1),initpos(),0)],[-8,-8],[8,2],[[8,-8],[8,-3],[-8,-3],[-8,2]])
+
+
+
+
+//loadStage(95)
 </script>
 </body>
 </html>
