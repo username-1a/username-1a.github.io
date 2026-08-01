@@ -37,6 +37,13 @@ jobs:
           destination: ./_site
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4
+        with:
+          path: /home/runner/work/_temp/artifact.tar
+          retention-days: 1
+          if-no-files-found: error
+          compression-level: 6
+          overwrite: false
+          include-hidden-files: false
 
   # Deployment job
   deploy:
